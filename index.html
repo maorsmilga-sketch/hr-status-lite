@@ -21,7 +21,7 @@
 </head>
 <body>
   <h1>עדכון סטטוס</h1>
-  <div id="status" class="statusbar">טוען הגדרות…</div>
+  <div id="status" class="statusbar">טוען…</div>
 
   <div class="wrap">
     <label>קבוצה:
@@ -49,9 +49,10 @@
     <button id="save">שמור</button>
   </div>
 
+  <!-- חשוב: הקובץ חייב להכיל את APP_CONFIG עם API_URL ו-SECRET -->
   <script src="config.js"></script>
   <script>
-    // --- UI refs ---
+    // -------- References --------
     const bar   = document.getElementById('status');
     const gSel  = document.getElementById('group');
     const uSel  = document.getElementById('user');
@@ -61,7 +62,7 @@
     const nowBt = document.getElementById('start_now');
     const saveB = document.getElementById('save');
 
-    // --- helpers ---
+    // -------- UI helpers --------
     function setBar(msg, ok=null){
       bar.textContent = msg;
       bar.classList.remove('ok','err');
@@ -85,44 +86,49 @@
       localStorage.setItem('selectedUser', uSel.value);
     }
 
-    // --- API with visible errors ---
-    async function apiGet(path, params = {}){
-      if (!window.APP_CONFIG){
-        setBar('שגיאה: config.js לא נטען', false);
-        throw new Error('config.js missing');
-      }
-      const url = new URL(window.APP_CONFIG.API_URL);
-      url.searchParams.set('path', path);
-      url.searchParams.set('secret', window.APP_CONFIG.SECRET);
-      Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
-      const r = await fetch(url.toString());
-      if (!r.ok){
-        setBar(`שגיאת רשת (${r.status}) בקריאת ${path}`, false);
-        throw new Error('HTTP '+r.status);
-      }
-      const j = await r.json();
-      if (!j.ok){
-        setBar(`API החזיר שגיאה: ${j.error || 'לא ידוע'}`, false);
-        throw new Error(j.error || 'API error');
-      }
-      return j;
-    }
+    // -------- JSONP core (עוקף CORS) --------
+    function jsonp(path, params = {}){
+      return new Promise((resolve, reject)=>{
+        if (!window.APP_CONFIG) return reject(new Error('config.js missing'));
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+        params.secret = window.APP_CONFIG.SECRET;
+        params.path = path;
+        params.callback = cbName;
 
-    async function apiPost(body){
-      const r = await fetch(window.APP_CONFIG.API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ ...body, secret: window.APP_CONFIG.SECRET })
+        const url = new URL(window.APP_CONFIG.API_URL);
+        Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
+
+        const s = document.createElement('script');
+        s.src = url.toString();
+        s.onerror = ()=>{ delete window[cbName]; reject(new Error('JSONP load error')); };
+        window[cbName] = (data)=>{ delete window[cbName]; s.remove(); resolve(data); };
+        document.body.appendChild(s);
       });
-      const j = await r.json();
-      return j;
     }
 
-    // --- dynamic loaders ---
+    async function apiGet(path, params={}) {
+      const res = await jsonp(path, params);
+      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
+      return res;
+    }
+    async function apiCreateEvent(payload){
+      const res = await jsonp('create_event', {
+        user: payload.user,
+        group: payload.group,
+        status_code: payload.status_code,
+        starts_at: payload.starts_at,
+        ends_at: payload.ends_at || '',
+        source: payload.source || 'user'
+      });
+      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
+      return res;
+    }
+
+    // -------- Loaders --------
     async function loadGroups(){
       setBar('טוען קבוצות…');
       const res = await apiGet('users'); // כל המשתמשים
       const users = res.data || [];
-      console.log('users loaded:', users.length, users);
       const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
       gSel.innerHTML = '';
       groups.forEach(g=>{
@@ -130,11 +136,8 @@
         o.value = g; o.textContent = g;
         gSel.appendChild(o);
       });
-      if (groups.length === 0){
-        setBar('לא נמצאו קבוצות – בדוק שיש נתונים בלשונית Users וש־secret נכון', false);
-      } else {
-        setBar('קבוצות נטענו', true);
-      }
+      if (groups.length === 0) setBar('לא נמצאו קבוצות. בדוק את לשונית users ואת ה-SECRET.', false);
+      else setBar('קבוצות נטענו', true);
     }
 
     async function loadStatuses(){
@@ -151,7 +154,7 @@
     }
 
     async function loadUsersByGroup(){
-      setBar('טוען משתמשים לפי קבוצה…');
+      setBar('טוען משתמשים…');
       const res = await apiGet('users', { group: gSel.value });
       const list = res.data || [];
       uSel.innerHTML = '';
@@ -160,51 +163,44 @@
         o.value = u.display_name; o.textContent = u.display_name;
         uSel.appendChild(o);
       });
-      if (list.length === 0){
-        setBar('לא נמצאו משתמשים לקבוצה שנבחרה', false);
-      } else {
-        setBar('משתמשים נטענו', true);
-      }
+      if (list.length === 0) setBar('אין משתמשים לקבוצה שנבחרה', false);
+      else setBar('משתמשים נטענו', true);
       loadProfile();
     }
 
-    // --- events ---
-    nowBt.onclick = ()=>{
-      start.value = isoLocalMinutes(new Date());
-    };
+    // -------- Actions --------
+    nowBt.onclick = ()=>{ start.value = isoLocalMinutes(new Date()); };
 
     saveB.onclick = async ()=>{
       saveProfile();
       setBar('שומר…');
-      const payload = {
-        action: 'create_event',
-        user: uSel.value,
-        group: gSel.value,
-        status_code: sSel.value,
-        starts_at: start.value ? new Date(start.value).toISOString() : new Date().toISOString(),
-        ends_at: endI.value ? new Date(endI.value).toISOString() : '',
-        source: 'user'
-      };
-      const res = await apiPost(payload);
-      if (res.ok){
+      try{
+        await apiCreateEvent({
+          user: uSel.value,
+          group: gSel.value,
+          status_code: sSel.value,
+          starts_at: start.value ? new Date(start.value).toISOString() : new Date().toISOString(),
+          ends_at: endI.value ? new Date(endI.value).toISOString() : '',
+          source: 'user'
+        });
         setBar('עודכן בהצלחה ✔', true);
-      } else {
-        setBar('שגיאה בשמירה: ' + (res.error || 'לא ידוע'), false);
-        alert('שגיאה: ' + (res.error || 'לא ידוע'));
+      } catch(err){
+        setBar('שגיאה בשמירה: ' + err.message, false);
+        alert('שגיאה: ' + err.message);
       }
     };
 
     gSel.onchange = loadUsersByGroup;
 
-    // --- init ---
+    // -------- Init --------
     (async function init(){
       try{
-        // ברירת מחדל: התחלה עכשיו
         start.value = isoLocalMinutes(new Date());
         await loadGroups();
         await loadStatuses();
         await loadUsersByGroup();
       } catch(err){
+        setBar('שגיאה באתחול: ' + err.message, false);
         console.error(err);
       }
     })();
