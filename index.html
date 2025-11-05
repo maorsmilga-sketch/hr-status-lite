@@ -149,4 +149,129 @@
 
     function jsonp(path,params={}){
       return new Promise((res,rej)=>{
-        if(!window.APP_CONFIG)_
+        if(!window.APP_CONFIG)return rej(new Error('config.js missing'));
+        const cbName='cb_'+Math.random().toString(36).slice(2);
+        params.secret=window.APP_CONFIG.SECRET;
+        params.path=path;
+        params.callback=cbName;
+        const url=new URL(window.APP_CONFIG.API_URL);
+        Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+        const s=document.createElement('script');
+        s.src=url.toString();
+        s.onerror=()=>{delete window[cbName];rej(new Error('JSONP load error'));};
+        window[cbName]=(data)=>{delete window[cbName];s.remove();res(data);};
+        document.body.appendChild(s);
+      });
+    }
+
+    async function apiGet(path,params={}){
+      const res=await jsonp(path,params);
+      if(!res.ok){setBar('API error: '+(res.error||'לא ידוע'),false);throw new Error(res.error||'API');}
+      return res;
+    }
+    async function apiCreateEvent(payload){
+      const res=await jsonp('create_event',{
+        user:payload.user,group:payload.group,status_code:payload.status_code,
+        starts_at:payload.starts_at,ends_at:payload.ends_at||'',source:payload.source||'user'
+      });
+      if(!res.ok){setBar('API error: '+(res.error||'לא ידוע'),false);throw new Error(res.error||'API');}
+      return res;
+    }
+
+    function luminance(hex){
+      const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||'');
+      if(!m)return 1;
+      const r=parseInt(m[1],16)/255,g=parseInt(m[2],16)/255,b=parseInt(m[3],16)/255;
+      const a=[r,g,b].map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+      return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];
+    }
+    function textColorFor(bgHex){return luminance(bgHex)>0.5?'#000':'#fff';}
+
+    function renderStatusButtons(statuses){
+      statusBtnsWrap.innerHTML='';
+      statuses.forEach(s=>{
+        const btn=document.createElement('div');
+        btn.className='status-btn';
+        btn.textContent=s.label;
+        const bg=s.color_hex||'#e0e0e0';
+        btn.style.background=bg;btn.style.color=textColorFor(bg);btn.style.borderColor=bg;
+        btn.onclick=()=>{
+          selectedStatusCode=s.code;
+          [...statusBtnsWrap.children].forEach(el=>el.classList.remove('selected'));
+          btn.classList.add('selected');
+          setSaveEnabled(true);
+        };
+        statusBtnsWrap.appendChild(btn);
+      });
+      selectedStatusCode=null;
+      setSaveEnabled(false);
+    }
+
+    async function loadAllUsers(){
+      setBar('טוען שמות…');
+      const res=await apiGet('users');
+      ALL_USERS=res.data||[];
+      uSel.innerHTML='';
+      ALL_USERS.forEach(u=>{
+        const o=document.createElement('option');
+        o.value=u.display_name;o.textContent=u.display_name;
+        uSel.appendChild(o);
+      });
+      setBar('שמות נטענו',true);
+      loadProfile();
+    }
+
+    async function loadStatuses(){
+      setBar('טוען סטטוסים…');
+      const res=await apiGet('statuses');
+      renderStatusButtons(res.data||[]);
+      setBar('סטטוסים נטענו',true);
+    }
+
+    function findUserByName(n){
+      const exact=ALL_USERS.find(u=>u.display_name===n);
+      if(exact)return exact;
+      const lower=n.toLowerCase();
+      return ALL_USERS.find(u=>u.display_name.toLowerCase()===lower)||null;
+    }
+
+    nowBt.onclick=()=>{start.value=isoLocalMinutes(new Date());};
+
+    uSel.onchange=()=>setSaveEnabled(!!uSel.value && !!selectedStatusCode);
+
+    saveB.onclick=async ()=>{
+      const selectedUser=findUserByName(uSel.value);
+      if(!selectedUser){setBar('בחר/י שם מהרשימה',false);return;}
+      if(!selectedStatusCode){setBar('בחר סטטוס לפני שמירה',false);return;}
+      saveProfile();
+      setBar('שומר…');
+      try{
+        await apiCreateEvent({
+          user:selectedUser.display_name,
+          group:selectedUser.group||'',
+          status_code:selectedStatusCode,
+          starts_at:start.value?new Date(start.value).toISOString():new Date().toISOString(),
+          ends_at:'', // הוסר השדה מה־UI — שולחים ריק
+          source:'user'
+        });
+        setBar('עודכן בהצלחה ✔',true);
+        showToast('עודכן');
+      }catch(err){
+        setBar('שגיאה בשמירה: '+err.message,false);
+        alert('שגיאה: '+err.message);
+      }
+    };
+
+    (async function init(){
+      try{
+        start.value=isoLocalMinutes(new Date());
+        await loadAllUsers();
+        await loadStatuses();
+      }catch(err){
+        setBar('שגיאה באתחול: '+err.message,false);
+        console.error(err);
+      }
+    })();
+  </script>
+</body>
+</html>
