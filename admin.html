@@ -63,7 +63,7 @@
       font-weight:bold;
       color:#1976d2;
     }
-    /* תיקון חד-משמעי להסתרה */
+    /* הסתרה חד-משמעית ל-[hidden] */
     [hidden]{ display:none !important; }
   </style>
 </head>
@@ -143,7 +143,10 @@
     const SNAP_AT = new Date();
     snapText.textContent = SNAP_AT.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
 
-    let onlyWithStatus = false;
+    // ברירת מחדל: מציגים רק עם סטטוס
+    let onlyWithStatus = true;
+    // הכפתור צריך להציע את הפעולה ההפוכה
+    toggleOnlyBtn.textContent = 'הצג את כולם';
 
     function toLocal(dtStr){
       if (!dtStr) return '—';
@@ -269,12 +272,11 @@
     (async function init(){
       try{
         await loadGroups();
-        await loadSnapshot();
+        await loadSnapshot(); // ירוץ כבר עם onlyWithStatus=true
       }catch(err){
         showErr('שגיאה באתחול: ' + err.message);
       } finally {
-        // ביטחון: הסתר בכל מקרה
-        loadingOverlay.hidden = true;
+        loadingOverlay.hidden = true; // ביטחון
         _loadingCount = 0;
       }
     })();
