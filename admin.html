@@ -52,7 +52,7 @@
 
   <div class="panel">
     <div class="controls">
-      <label>קבוצה:
+      <label>מחלקה:
         <select id="group"></select>
       </label>
       <button id="refresh">רענן</button>
@@ -64,7 +64,7 @@
     <h3 style="margin-top:0">תמונת מצב</h3>
     <div id="summary" class="chips"></div>
     <table>
-      <thead><tr><th>שם</th><th>קבוצה</th><th>סטטוס</th><th>עודכן</th></tr></thead>
+      <thead><tr><th>שם</th><th>מחלקה</th><th>סטטוס</th><th>עודכן</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
   </div>
@@ -133,7 +133,7 @@
       gSel.innerHTML = '';
       const allOpt = document.createElement('option');
       allOpt.value = '__ALL__';
-      allOpt.textContent = 'כל הקבוצות';
+      allOpt.textContent = 'כל המחלקות';
       gSel.appendChild(allOpt);
       groups.forEach(g=>{
         const o = document.createElement('option');
@@ -229,3 +229,4 @@
   </script>
 </body>
 </html>
+
