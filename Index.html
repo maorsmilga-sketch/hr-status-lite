@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>עדכון סטטוס</title>
+  <style>
+    body{font-family:system-ui,Arial;margin:20px}
+    .row{margin:8px 0}
+    .hint{font-size:12px;color:#666}
+  </style>
+</head>
+<body>
+  <h1>עדכון סטטוס</h1>
+
+  <div class="row">
+    <label>קבוצה:
+      <select id="group"></select>
+    </label>
+  </div>
+  <div class="row">
+    <label>שם:
+      <select id="user"></select>
+    </label>
+    <div class="hint">המערכת תזכור את הבחירה לפעם הבאה.</div>
+  </div>
+  <div class="row">
+    <label>סטטוס:
+      <select id="status"></select>
+    </label>
+  </div>
+  <div class="row">
+    <label>התחלה:
+      <input type="datetime-local" id="startsAt">
+    </label>
+    <button id="nowBtn">התחל מעכשיו</button>
+  </div>
+  <div class="row">
+    <label>סיום (אופציונלי):
+      <input type="datetime-local" id="endsAt">
+    </label>
+  </div>
+  <div class="row">
+    <button id="submitBtn">שמור</button>
+  </div>
+  <div id="msg"></div>
+
+  <script src="./config.js"></script>
+  <script>
+    const S = window.APP_CONFIG;
+    const GROUPS = ["מכלול רפואה","תאג\"ד מפח\"ט"];
+    const el = id => document.getElementById(id);
+    const gSel=el('group'), uSel=el('user'), sSel=el('status'),
+          starts=el('startsAt'), ends=el('endsAt'), msg=el('msg');
+
+    // צבעי "גלולה" יפים בתפריטים
+    function hexToRgb(hex){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||''); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; }
+    function pillStyleFromHex(hex,alpha=0.25){ const rgb=hexToRgb(hex); if(!rgb) return {bg:'#eee',color:'#000'}; return {bg:`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`,color:hex}; }
+
+    // שמירה מקומית "זכור אותי"
+    const LS_KEY='hrstatus.profile';
+    function saveProfile(){ localStorage.setItem(LS_KEY, JSON.stringify({group:gSel.value,user:uSel.value})); }
+    function loadProfile(){ try{ const p=JSON.parse(localStorage.getItem(LS_KEY)||'{}'); if(p.group) gSel.value=p.group; if(p.user) setTimeout(()=>uSel.value=p.user,300);}catch(_){} }
+
+    // קריאות API (פשוטות, בלי headers מיוחדים)
+    async function apiGet(path, params={}){
+      const url = new URL(S.API_URL);
+      url.searchParams.set('path', path);
+      url.searchParams.set('secret', S.SECRET);
+      Object.entries(params).forEach(([k,v])=> url.searchParams.set(k,v));
+      const r = await fetch(url);
+      return r.json();
+    }
+    async function apiPost(body){
+      const r = await fetch(S.API_URL, { method:'POST', body: JSON.stringify({...body, secret:S.SECRET}) });
+      return r.json();
+    }
+
+    async function loadGroups(){
+      GROUPS.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; gSel.appendChild(o); });
+    }
+    async function loadUsers(){
+      uSel.innerHTML='';
+      const res = await apiGet('users', { group:gSel.value });
+      (res.data||[]).forEach(u=>{ const o=document.createElement('option'); o.value=u.display_name; o.textContent=u.display_name; uSel.appendChild(o); });
+    }
+    async function loadStatuses(){
+      sSel.innerHTML='';
+      const res = await apiGet('statuses');
+      (res.data||[]).forEach(s=>{
+        const o=document.createElement('option');
+        o.value=s.code; o.textContent=s.label;
+        const st = pillStyleFromHex(s.color_hex,0.25);
+        o.style.background=st.bg; o.style.color=st.color;
+        sSel.appendChild(o);
+      });
+    }
+
+    document.getElementById('nowBtn').onclick=()=>{
+      const d=new Date(), pad=n=>String(n).padStart(2,'0');
+      starts.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    document.getElementById('submitBtn').onclick=async ()=>{
+      msg.textContent='שומר...'; saveProfile();
+      const payload = {
+        action:'create_event',
+        user: uSel.value,
+        group: gSel.value,
+        status_code: sSel.value,
+        starts_at: starts.value ? new Date(starts.value).toISOString() : new Date().toISOString(),
+        ends_at: ends.value ? new Date(ends.value).toISOString() : '',
+        source: 'user'
+      };
+      const res = await apiPost(payload);
+      msg.textContent = res.ok ? 'עודכן!' : ('שגיאה: ' + res.error);
+    };
+
+    gSel.onchange = ()=> loadUsers();
+
+    (async function init(){
+      await loadGroups();
+      await loadStatuses();
+      await loadUsers();
+      loadProfile();
+    })();
+  </script>
+</body>
+</html>
