@@ -42,9 +42,35 @@
     th{background:#f2f5fa}
     .pill{padding:4px 10px;border-radius:999px;border:1px solid #ccc;display:inline-block;white-space:nowrap}
     .chips{display:flex;flex-wrap:wrap;gap:8px}
+
+    /* === שכבת טעינה ממורכזת === */
+    .loading-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(255,255,255,0.7);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+      backdrop-filter:saturate(120%) blur(2px);
+    }
+    .loading-box{
+      background:#ffffff;
+      border:1px solid #e5e9f2;
+      border-radius:12px;
+      padding:14px 18px;
+      box-shadow:0 6px 18px rgba(0,0,0,.08);
+      font-weight:bold;
+      color:#1976d2;
+    }
   </style>
 </head>
 <body>
+  <!-- שכבת טעינה: מוסתרת כברירת מחדל ע״י hidden -->
+  <div id="loadingOverlay" class="loading-overlay" hidden>
+    <div class="loading-box">טוען נתונים..</div>
+  </div>
+
   <img src="logo.png" alt="לוגו חטיבה 2 - רפואה ופינוי" class="logo" />
   <h1>ניהול - קרפ"ח</h1>
   <p class="sub">תמונת מצב ביחס לרגע פתיחת העמוד: <span id="snapText"></span></p>
@@ -115,7 +141,7 @@
     const SNAP_AT = new Date();
     snapText.textContent = SNAP_AT.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
 
-    let onlyWithStatus = False;
+    let onlyWithStatus = false;
 
     function toLocal(dtStr){
       if (!dtStr) return '—';
@@ -126,25 +152,43 @@
     function hexToRgb(hex){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||''); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; }
     function pillStyleFromHex(hex,alpha=0.15){ const rgb=hexToRgb(hex); if(!rgb) return {bg:'#eee',color:'#000',border:'#ddd'}; return {bg:`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`,color:hex,border:hex}; }
 
+    // === מחווה לטעינה: ניהול מונה למניעת הבהובים ===
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    let _loadingCount = 0;
+    function showLoading(){
+      _loadingCount++;
+      loadingOverlay.hidden = false;
+    }
+    function hideLoading(){
+      _loadingCount = Math.max(0, _loadingCount - 1);
+      if (_loadingCount === 0) loadingOverlay.hidden = true;
+    }
+
     async function loadGroups(){
-      const res = await apiGet('users');
-      const users = res.data || [];
-      const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean).sort();
-      gSel.innerHTML = '';
-      const allOpt = document.createElement('option');
-      allOpt.value = '__ALL__';
-      allOpt.textContent = 'כל הקבוצות';
-      gSel.appendChild(allOpt);
-      groups.forEach(g=>{
-        const o = document.createElement('option');
-        o.value = g; o.textContent = g;
-        gSel.appendChild(o);
-      });
-      gSel.value = '__ALL__';
+      showLoading();
+      try{
+        const res = await apiGet('users');
+        const users = res.data || [];
+        const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean).sort();
+        gSel.innerHTML = '';
+        const allOpt = document.createElement('option');
+        allOpt.value = '__ALL__';
+        allOpt.textContent = 'כל הקבוצות';
+        gSel.appendChild(allOpt);
+        groups.forEach(g=>{
+          const o = document.createElement('option');
+          o.value = g; o.textContent = g;
+          gSel.appendChild(o);
+        });
+        gSel.value = '__ALL__';
+      } finally {
+        hideLoading();
+      }
     }
 
     async function loadSnapshot(){
       clearMsg();
+      showLoading();
       try{
         const groupVal = gSel.value;
         const nowParams = {};
@@ -207,6 +251,8 @@
 
       }catch(err){
         showErr('שגיאה בטעינת תמונת מצב: ' + err.message);
+      } finally {
+        hideLoading();
       }
     }
 
@@ -219,15 +265,17 @@
     };
 
     (async function init(){
+      // מציגים מחווה כבר בתחילת האתחול
+      showLoading();
       try{
         await loadGroups();
         await loadSnapshot();
       }catch(err){
         showErr('שגיאה באתחול: ' + err.message);
+      } finally {
+        hideLoading();
       }
     })();
   </script>
 </body>
 </html>
-
-
