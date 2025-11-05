@@ -1,13 +1,9 @@
 <!doctype html>
-<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>דשבורד מנהל — תמונת מצב</title>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>עדכון סטטוס</title>
   <style>
     body{font-family:system-ui,Arial;margin:20px;background:#f7f9fc;color:#222}
     h1{margin:0 0 6px}
@@ -16,13 +12,6 @@
     .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     select,button{font-size:14px;padding:8px}
     button{background:#1976d2;color:#fff;border:none;border-radius:6px;cursor:pointer}
-    body{font-family:Arial, sans-serif;background:#f5f7fb;color:#222;padding:30px}
-    h1{color:#1976d2;text-align:center;margin-top:0}
-    .wrap{max-width:520px;margin:0 auto}
-    label{display:block;margin-top:16px;font-weight:bold}
-    select,input,button{font-size:16px;margin-top:6px;padding:10px;width:100%;box-sizing:border-box}
-    button{background:#1976d2;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:18px}
-    button.secondary{background:#0d6efd20;color:#0d6efd;border:1px solid #0d6efd}
     button:hover{filter:brightness(0.95)}
     .bar{display:none;margin:0 0 12px;padding:10px;border:1px solid #e5e9f2;border-radius:8px;background:#fff}
     .bar.err{display:block;border-color:#c0392b;color:#c0392b}
@@ -31,30 +20,6 @@
     th{background:#f2f5fa}
     .pill{padding:4px 10px;border-radius:999px;border:1px solid #ccc;display:inline-block;white-space:nowrap}
     .chips{display:flex;flex-wrap:wrap;gap:8px}
-    .hint{font-size:12px;color:#666}
-    .statusbar{background:#fff;border:1px solid #e5e9f2;border-radius:8px;padding:10px;margin:0 auto 14px;max-width:520px;color:#333}
-    .statusbar.ok{border-color:#27ae60}
-    .statusbar.err{border-color:#c0392b;color:#c0392b}
-
-    /* כפתורי סטטוס */
-    .status-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-    .status-btn{
-      flex:1 1 calc(50% - 10px);
-      min-width:calc(50% - 10px);
-      padding:10px;
-      border-radius:10px;
-      border:1px solid #e0e0e0;
-      cursor:pointer;
-      text-align:center;
-      user-select:none;
-      transition:transform .05s ease, box-shadow .1s ease;
-      background:#fff;
-      color:#222;
-    }
-    .status-btn:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
-    .status-btn.selected{outline:3px solid #00000022}
-    /* מסתיר את ה-select הישן כדי לשמור תאימות לקוד */
-    #statusSel{display:none}
   </style>
 </head>
 <body>
@@ -70,29 +35,6 @@
       <button id="refresh">רענן</button>
       <!-- תוספת: כפתור סינון -->
       <button id="toggleOnly">הצג רק עם סטטוס</button>
-  <h1>עדכון סטטוס</h1>
-  <div id="status" class="statusbar">טוען…</div>
-
-  <div class="wrap">
-    <label>קבוצה:
-      <select id="group"></select>
-    </label>
-
-    <label>שם:
-      <select id="user"></select>
-    </label>
-    <div class="hint">המערכת תזכור את הבחירה לפעם הבאה.</div>
-
-    <label>סטטוס:</label>
-    <!-- כפתורי סטטוס ייבנו כאן -->
-    <div id="statusButtons" class="status-grid"></div>
-    <!-- משאיר את ה-select כדי לא לשבור לוגיקה קיימת; מוסתר ב-CSS -->
-    <select id="statusSel"></select>
-
-    <label>התחלה:</label>
-    <div style="display:flex;gap:8px">
-      <input type="datetime-local" id="start_time" />
-      <button id="start_now" type="button" class="secondary" style="width:40%">התחל מעכשיו</button>
     </div>
   </div>
 
@@ -103,13 +45,8 @@
       <thead><tr><th>שם</th><th>קבוצה</th><th>סטטוס</th><th>עודכן</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
-    <label>סיום (אופציונלי):</label>
-    <input type="datetime-local" id="end_time" />
-
-    <button id="save">שמור</button>
   </div>
 
-  <!-- חשוב: הקובץ חייב להכיל את APP_CONFIG עם API_URL ו-SECRET -->
   <script src="config.js"></script>
   <script>
     // --- הודעות שגיאה בלבד ---
@@ -117,79 +54,34 @@
     function showErr(msg){
       bar.textContent = msg || 'שגיאה לא ידועה';
       bar.className = 'bar err';
-    // -------- References --------
-    const bar   = document.getElementById('status');
-    const gSel  = document.getElementById('group');
-    const uSel  = document.getElementById('user');
-    const sSel  = document.getElementById('statusSel'); // נשאר קיים (מוסתר), נסנכרן אליו את הבחירה
-    const statusBtnsWrap = document.getElementById('statusButtons');
-    const start = document.getElementById('start_time');
-    const endI  = document.getElementById('end_time');
-    const nowBt = document.getElementById('start_now');
-    const saveB = document.getElementById('save');
-
-    // מצב בחירה
-    let selectedStatusCode = null;
-
-    // -------- UI helpers --------
-    function setBar(msg, ok=null){
-      bar.textContent = msg;
-      bar.classList.remove('ok','err');
-      if (ok === true) bar.classList.add('ok');
-      if (ok === false) bar.classList.add('err');
     }
     function clearMsg(){
       bar.textContent = '';
       bar.className = 'bar';
-    function isoLocalMinutes(d){
-      const pad=n=>String(n).padStart(2,'0');
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-    function loadProfile(){
-      try{
-        const g = localStorage.getItem('selectedGroup');
-        const u = localStorage.getItem('selectedUser');
-        if (g && [...gSel.options].some(o=>o.value===g)) gSel.value=g;
-        if (u && [...uSel.options].some(o=>o.value===u)) uSel.value=u;
-      }catch(_){}
-    }
-    function saveProfile(){
-      localStorage.setItem('selectedGroup', gSel.value);
-      localStorage.setItem('selectedUser', uSel.value);
-    }
-    function setSaveEnabled(enabled){
-      saveB.disabled = !enabled;
-      saveB.style.opacity = enabled ? '1' : '0.6';
-      saveB.style.cursor = enabled ? 'pointer' : 'not-allowed';
     }
 
     // --- JSONP (עוקף CORS) ---
-    // -------- JSONP core (עוקף CORS) --------
     function jsonp(path, params = {}){
       return new Promise((resolve, reject)=>{
         if (!window.APP_CONFIG) return reject(new Error('config.js missing'));
-@@ -79,141 +136,151 @@ <h3 style="margin-top:0">תמונת מצב</h3>
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+        params.secret = window.APP_CONFIG.SECRET;
+        params.path = path;
+        params.callback = cbName;
+
+        const url = new URL(window.APP_CONFIG.API_URL);
+        Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
+
+        const s = document.createElement('script');
+        s.src = url.toString();
+        s.onerror = ()=>{ delete window[cbName]; reject(new Error('JSONP load error')); };
+        window[cbName] = (data)=>{ delete window[cbName]; s.remove(); resolve(data); };
         document.body.appendChild(s);
       });
     }
     async function apiGet(path, params = {}){
-
-    async function apiGet(path, params={}) {
       const res = await jsonp(path, params);
       if (!res.ok) throw new Error(res.error || 'API error');
-      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
-      return res;
-    }
-    async function apiCreateEvent(payload){
-      const res = await jsonp('create_event', {
-        user: payload.user,
-        group: payload.group,
-        status_code: payload.status_code,
-        starts_at: payload.starts_at,
-        ends_at: payload.ends_at || '',
-        source: payload.source || 'user'
-      });
-      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
       return res;
     }
 
@@ -200,65 +92,26 @@
     const snapText = document.getElementById('snapText');
     const refreshBtn = document.getElementById('refresh');
     const toggleOnlyBtn = document.getElementById('toggleOnly');
-    // -------- Build status buttons --------
-    function luminance(hex){
-      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||'');
-      if (!m) return 1;
-      const r = parseInt(m[1],16)/255, g = parseInt(m[2],16)/255, b = parseInt(m[3],16)/255;
-      const a=[r,g,b].map(v=>v<=0.03928? v/12.92: Math.pow((v+0.055)/1.055,2.4));
-      return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];
-    }
-    function textColorFor(bgHex){ return luminance(bgHex) > 0.5 ? '#000' : '#fff'; }
 
     const SNAP_AT = new Date(); // רגע פתיחת הדף
     snapText.textContent = SNAP_AT.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
-    function renderStatusButtons(statuses){
-      statusBtnsWrap.innerHTML = '';
-      statuses.forEach(s=>{
-        const btn = document.createElement('div');
-        btn.className = 'status-btn';
-        btn.textContent = s.label;
-        // צבע רקע מה-Sheet
-        const bg = s.color_hex || '#e0e0e0';
-        btn.style.background = bg;
-        btn.style.color = textColorFor(bg);
-        btn.style.borderColor = bg;
 
     let onlyWithStatus = false; // דגל הסינון
-        btn.onclick = ()=>{
-          selectedStatusCode = s.code;
-          sSel.value = s.code; // שומר תאימות ללוגיקה קיימת
-          // עדכון ויזואלי
-          [...statusBtnsWrap.children].forEach(el=>el.classList.remove('selected'));
-          btn.classList.add('selected');
-          // הפעלת כפתור שמור
-          setSaveEnabled(true);
-        };
 
     function toLocal(dtStr){
       if (!dtStr) return '—';
       const d = new Date(dtStr);
       if (isNaN(d)) return '—';
       return d.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
-        statusBtnsWrap.appendChild(btn);
-      });
-
-      // אין בחירה ברירת מחדל
-      selectedStatusCode = null;
-      sSel.value = '';
-      setSaveEnabled(false);
     }
     function hexToRgb(hex){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||''); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; }
     function pillStyleFromHex(hex,alpha=0.15){ const rgb=hexToRgb(hex); if(!rgb) return {bg:'#eee',color:'#000',border:'#ddd'}; return {bg:`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`,color:hex,border:hex}; }
 
     // --- טעינת קבוצות (דינמי) + "כל הקבוצות" כברירת מחדל ---
-    // -------- Loaders --------
     async function loadGroups(){
-      setBar('טוען קבוצות…');
       const res = await apiGet('users'); // כל המשתמשים
       const users = res.data || [];
       const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean).sort();
-      const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
       gSel.innerHTML = '';
       const allOpt = document.createElement('option');
       allOpt.value = '__ALL__';
@@ -270,8 +123,6 @@
         gSel.appendChild(o);
       });
       gSel.value = '__ALL__'; // ברירת מחדל: כל הקבוצות יחד
-      if (groups.length === 0) setBar('לא נמצאו קבוצות. בדוק את לשונית users ואת ה-SECRET.', false);
-      else setBar('קבוצות נטענו', true);
     }
 
     // --- חישוב תמונת מצב + "מתי עודכן" לכל משתמש ---
@@ -322,44 +173,14 @@
           const st = pillStyleFromHex(r.color_hex);
           pill.style.background=st.bg; pill.style.color=st.color; pill.style.border=`1px solid ${st.border}`;
           tdStat.appendChild(pill);
-    async function loadStatuses(){
-      setBar('טוען סטטוסים…');
-      const res = await apiGet('statuses');
-      const list = res.data || [];
-      // שומר את ה-select מסונכרן (מוסתר), אבל הבניה העיקרית היא כפתורים:
-      sSel.innerHTML = '';
-      list.forEach(s=>{
-        const o = document.createElement('option');
-        o.value = s.code; o.textContent = s.label;
-        sSel.appendChild(o);
-      });
-      renderStatusButtons(list);
-      setBar('סטטוסים נטענו', true);
-    }
 
           const tdWhen = document.createElement('td');
           const dt = lastUpdateByUser[r.user] ? lastUpdateByUser[r.user].toISOString() : '';
           tdWhen.textContent = toLocal(dt);
-    async function loadUsersByGroup(){
-      setBar('טוען משתמשים…');
-      const res = await apiGet('users', { group: gSel.value });
-      const list = res.data || [];
-      uSel.innerHTML = '';
-      list.forEach(u=>{
-        const o = document.createElement('option');
-        o.value = u.display_name; o.textContent = u.display_name;
-        uSel.appendChild(o);
-      });
-      if (list.length === 0) setBar('אין משתמשים לקבוצה שנבחרה', false);
-      else setBar('', true);
-      loadProfile();
-    }
 
           tr.append(tdUser, tdGroup, tdStat, tdWhen);
           tbody.appendChild(tr);
         });
-    // -------- Actions --------
-    nowBt.onclick = ()=>{ start.value = isoLocalMinutes(new Date()); };
 
         // 4) סיכום לפי סטטוס (על המסונן)
         const counts = {};
@@ -370,30 +191,10 @@
           chip.className = 'pill';
           chip.textContent = `${k}: ${v}`;
           summary.appendChild(chip);
-    saveB.onclick = async ()=>{
-      // חסימה אם אין בחירת סטטוס
-      if (!selectedStatusCode){
-        setBar('בחר סטטוס לפני שמירה', false);
-        return;
-      }
-      saveProfile();
-      setBar('שומר…');
-      try{
-        await apiCreateEvent({
-          user: uSel.value,
-          group: gSel.value,
-          status_code: selectedStatusCode, // הערך מהכפתור
-          starts_at: start.value ? new Date(start.value).toISOString() : new Date().toISOString(),
-          ends_at: endI.value ? new Date(endI.value).toISOString() : '',
-          source: 'user'
         });
 
       }catch(err){
         showErr('שגיאה בטעינת תמונת מצב: ' + err.message);
-        setBar('עודכן בהצלחה ✔', true);
-      } catch(err){
-        setBar('שגיאה בשמירה: ' + err.message, false);
-        alert('שגיאה: ' + err.message);
       }
     }
 
@@ -407,22 +208,14 @@
     };
 
     // --- init ---
-    gSel.onchange = loadUsersByGroup;
-
-    // -------- Init --------
     (async function init(){
       try{
         await loadGroups();    // ברירת מחדל: כל הקבוצות
         await loadSnapshot();  // צילום מצב לרגע פתיחת העמוד
       }catch(err){
         showErr('שגיאה באתחול: ' + err.message);
-        start.value = isoLocalMinutes(new Date());
-        await loadGroups();
-        await loadStatuses();      // יבנה את הכפתורים וינעל את "שמור" עד בחירה
-        await loadUsersByGroup();
-      } catch(err){
-        setBar('שגיאה באתחול: ' + err.message, false);
-        console.error(err);
       }
     })();
   </script>
+</body>
+</html>
