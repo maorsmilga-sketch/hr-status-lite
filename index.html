@@ -313,7 +313,7 @@
     }
 
     async function loadUsersByGroup(){
-      setBar('טוען משתמשים…');
+      setBar('טוען שמות…');
       const res = await apiGet('users', { group: gSel.value });
       const list = res.data || [];
       uSel.innerHTML = '';
@@ -322,7 +322,7 @@
         o.value = u.display_name; o.textContent = u.display_name;
         uSel.appendChild(o);
       });
-      if (list.length === 0) setBar('אין משתמשים למחלקה שנבחרה', false);
+      if (list.length === 0) setBar('אין שמות למחלקה שנבחרה', false);
        setBar('');
    
       loadProfile();
@@ -373,6 +373,7 @@
   </script>
 </body>
 </html>
+
 
 
 
