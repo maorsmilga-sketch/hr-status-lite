@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>עדכון סטטוס</title>
+  <title>רפואה חטיבה 2 עדכון סטטוס</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -20,8 +20,9 @@
       text-align: center;
       margin-bottom: 10px;
     }
+    /* הגדלה עדינה של הלוגו */
     header img {
-      width: 90px;
+      width: 110px;           /* היה ~90px */
       height: auto;
       display: block;
       margin: 0 auto 5px;
@@ -54,6 +55,8 @@
     }
     .statusbar.ok{border-color:#27ae60}
     .statusbar.err{border-color:#c0392b;color:#c0392b}
+
+    /* כפתורי סטטוס */
     .status-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
     .status-btn{
       flex:1 1 calc(50% - 10px);
@@ -71,6 +74,28 @@
     }
     .status-btn:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
     .status-btn.selected{outline:3px solid #00000022}
+
+    /* טוסט קטן לעדכון */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(20px);
+      background: #1a73e8;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+      z-index: 1000;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body>
@@ -82,7 +107,7 @@
   <div id="status" class="statusbar">טוען…</div>
 
   <div class="wrap">
-    <label>קבוצה:
+    <label>מחלקה:
       <select id="group"></select>
     </label>
 
@@ -106,30 +131,216 @@
     <button id="save">שמור</button>
   </div>
 
+  <!-- טוסט -->
+  <div id="toast" class="toast">עודכן</div>
+
   <script src="config.js"></script>
   <script>
-    const bar=document.getElementById('status'),gSel=document.getElementById('group'),
-    uSel=document.getElementById('user'),statusBtnsWrap=document.getElementById('statusButtons'),
-    start=document.getElementById('start_time'),endI=document.getElementById('end_time'),
-    nowBt=document.getElementById('start_now'),saveB=document.getElementById('save');
-    let selectedStatusCode=null;
-    function setBar(msg,ok=null){bar.textContent=msg;bar.classList.remove('ok','err');if(ok===true)bar.classList.add('ok');if(ok===false)bar.classList.add('err');}
-    function isoLocalMinutes(d){const pad=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
-    function loadProfile(){try{const g=localStorage.getItem('selectedGroup'),u=localStorage.getItem('selectedUser');if(g&&[...gSel.options].some(o=>o.value===g))gSel.value=g;if(u&&[...uSel.options].some(o=>o.value===u))uSel.value=u;}catch(_){}}function saveProfile(){localStorage.setItem('selectedGroup',gSel.value);localStorage.setItem('selectedUser',uSel.value);}
-    function setSaveEnabled(e){saveB.disabled=!e;saveB.style.opacity=e?'1':'0.6';saveB.style.cursor=e?'pointer':'not-allowed';}
-    function jsonp(p,a={}){return new Promise((r,j)=>{if(!window.APP_CONFIG)return j(new Error('config.js missing'));const c='cb_'+Math.random().toString(36).slice(2);a.secret=window.APP_CONFIG.SECRET;a.path=p;a.callback=c;const u=new URL(window.APP_CONFIG.API_URL);Object.entries(a).forEach(([k,v])=>u.searchParams.set(k,v));const s=document.createElement('script');s.src=u.toString();s.onerror=()=>{delete window[c];j(new Error('JSONP load error'));};window[c]=d=>{delete window[c];s.remove();r(d);};document.body.appendChild(s);});}
-    async function apiGet(p,a={}){const r=await jsonp(p,a);if(!r.ok){setBar('API error: '+(r.error||'לא ידוע'),false);throw new Error(r.error||'API');}return r;}
-    async function apiCreateEvent(p){const r=await jsonp('create_event',{user:p.user,group:p.group,status_code:p.status_code,starts_at:p.starts_at,ends_at:p.ends_at||'',source:p.source||'user'});if(!r.ok){setBar('API error: '+(r.error||'לא ידוע'),false);throw new Error(r.error||'API');}return r;}
-    function luminance(h){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h||'');if(!m)return 1;const r=parseInt(m[1],16)/255,g=parseInt(m[2],16)/255,b=parseInt(m[3],16)/255,a=[r,g,b].map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];}
-    function textColorFor(b){return luminance(b)>0.5?'#000':'#fff';}
-    function renderStatusButtons(s){statusBtnsWrap.innerHTML='';s.forEach(st=>{const b=document.createElement('div');b.className='status-btn';b.textContent=st.label;const bg=st.color_hex||'#e0e0e0';b.style.background=bg;b.style.color=textColorFor(bg);b.style.borderColor=bg;b.onclick=()=>{selectedStatusCode=st.code;[...statusBtnsWrap.children].forEach(el=>el.classList.remove('selected'));b.classList.add('selected');setSaveEnabled(true);};statusBtnsWrap.appendChild(b);});selectedStatusCode=null;setSaveEnabled(false);}
-    async function loadGroups(){setBar('טוען קבוצות…');const r=await apiGet('users');const u=r.data||[];const g=[...new Set(u.map(x=>String(x.group||'').trim()))].filter(Boolean);gSel.innerHTML='';g.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;gSel.appendChild(o);});if(g.length===0)setBar('לא נמצאו קבוצות',false);else setBar('קבוצות נטענו',true);}
-    async function loadStatuses(){setBar('טוען סטטוסים…');const r=await apiGet('statuses');renderStatusButtons(r.data||[]);setBar('סטטוסים נטענו',true);}
-    async function loadUsersByGroup(){setBar('טוען משתמשים…');const r=await apiGet('users',{group:gSel.value});const l=r.data||[];uSel.innerHTML='';l.forEach(u=>{const o=document.createElement('option');o.value=u.display_name;o.textContent=u.display_name;uSel.appendChild(o);});if(l.length===0)setBar('אין משתמשים לקבוצה',false);else setBar('',true);loadProfile();}
-    nowBt.onclick=()=>{start.value=isoLocalMinutes(new Date());};
-    saveB.onclick=async()=>{if(!selectedStatusCode){setBar('בחר סטטוס לפני שמירה',false);return;}saveProfile();setBar('שומר…');try{await apiCreateEvent({user:uSel.value,group:gSel.value,status_code:selectedStatusCode,starts_at:start.value?new Date(start.value).toISOString():new Date().toISOString(),ends_at:endI.value?new Date(endI.value).toISOString():'',source:'user'});setBar('עודכן בהצלחה ✔',true);}catch(e){setBar('שגיאה בשמירה: '+e.message,false);alert('שגיאה: '+e.message);}};
-    gSel.onchange=loadUsersByGroup;
-    (async function(){try{start.value=isoLocalMinutes(new Date());await loadGroups();await loadStatuses();await loadUsersByGroup();}catch(e){setBar('שגיאה באתחול: '+e.message,false);console.error(e);}})();
+    // -------- References --------
+    const bar   = document.getElementById('status');
+    const gSel  = document.getElementById('group');
+    const uSel  = document.getElementById('user');
+    const statusBtnsWrap = document.getElementById('statusButtons');
+    const start = document.getElementById('start_time');
+    const endI  = document.getElementById('end_time');
+    const nowBt = document.getElementById('start_now');
+    const saveB = document.getElementById('save');
+    const toast = document.getElementById('toast');
+
+    // מצב בחירה
+    let selectedStatusCode = null;
+
+    // -------- UI helpers --------
+    function setBar(msg, ok=null){
+      bar.textContent = msg;
+      bar.classList.remove('ok','err');
+      if (ok === true) bar.classList.add('ok');
+      if (ok === false) bar.classList.add('err');
+    }
+    function isoLocalMinutes(d){
+      const pad=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function loadProfile(){
+      try{
+        const g = localStorage.getItem('selectedGroup');
+        const u = localStorage.getItem('selectedUser');
+        if (g && [...gSel.options].some(o=>o.value===g)) gSel.value=g;
+        if (u && [...uSel.options].some(o=>o.value===u)) uSel.value=u;
+      }catch(_){}
+    }
+    function saveProfile(){
+      localStorage.setItem('selectedGroup', gSel.value);
+      localStorage.setItem('selectedUser', uSel.value);
+    }
+    function setSaveEnabled(enabled){
+      saveB.disabled = !enabled;
+      saveB.style.opacity = enabled ? '1' : '0.6';
+      saveB.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    }
+
+    // Toast helper (חיווי קטן)
+    let toastTimer = null;
+    function showToast(message='עודכן') {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=> toast.classList.remove('show'), 1700);
+    }
+
+    // -------- JSONP core (עוקף CORS) --------
+    function jsonp(path, params = {}){
+      return new Promise((resolve, reject)=>{
+        if (!window.APP_CONFIG) return reject(new Error('config.js missing'));
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+        params.secret = window.APP_CONFIG.SECRET;
+        params.path = path;
+        params.callback = cbName;
+
+        const url = new URL(window.APP_CONFIG.API_URL);
+        Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
+
+        const s = document.createElement('script');
+        s.src = url.toString();
+        s.onerror = ()=>{ delete window[cbName]; reject(new Error('JSONP load error')); };
+        window[cbName] = (data)=>{ delete window[cbName]; s.remove(); resolve(data); };
+        document.body.appendChild(s);
+      });
+    }
+
+    async function apiGet(path, params={}) {
+      const res = await jsonp(path, params);
+      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
+      return res;
+    }
+    async function apiCreateEvent(payload){
+      const res = await jsonp('create_event', {
+        user: payload.user,
+        group: payload.group,
+        status_code: payload.status_code,
+        starts_at: payload.starts_at,
+        ends_at: payload.ends_at || '',
+        source: payload.source || 'user'
+      });
+      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
+      return res;
+    }
+
+    // -------- Build status buttons --------
+    function luminance(hex){
+      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||'');
+      if (!m) return 1;
+      const r = parseInt(m[1],16)/255, g = parseInt(m[2],16)/255, b = parseInt(m[3],16)/255;
+      const a=[r,g,b].map(v=>v<=0.03928? v/12.92: Math.pow((v+0.055)/1.055,2.4));
+      return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];
+    }
+    function textColorFor(bgHex){ return luminance(bgHex) > 0.5 ? '#000' : '#fff'; }
+
+    function renderStatusButtons(statuses){
+      statusBtnsWrap.innerHTML = '';
+      statuses.forEach(s=>{
+        const btn = document.createElement('div');
+        btn.className = 'status-btn';
+        btn.textContent = s.label;
+
+        const bg = s.color_hex || '#e0e0e0';
+        btn.style.background = bg;
+        btn.style.color = textColorFor(bg);
+        btn.style.borderColor = bg;
+
+        btn.onclick = ()=>{
+          selectedStatusCode = s.code;
+          [...statusBtnsWrap.children].forEach(el=>el.classList.remove('selected'));
+          btn.classList.add('selected');
+          setSaveEnabled(true);
+        };
+
+        statusBtnsWrap.appendChild(btn);
+      });
+
+      selectedStatusCode = null;
+      setSaveEnabled(false);
+    }
+
+    // -------- Loaders --------
+    async function loadGroups(){
+      setBar('טוען מחלקות…');
+      const res = await apiGet('users');
+      const users = res.data || [];
+      const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
+      gSel.innerHTML = '';
+      groups.forEach(g=>{
+        const o = document.createElement('option');
+        o.value = g; o.textContent = g;
+        gSel.appendChild(o);
+      });
+      if (groups.length === 0) setBar('לא נמצאו מחלקות. בדוק את לשונית users ואת ה-SECRET.', false);
+      else setBar('מחלקות נטענו', true);
+    }
+
+    async function loadStatuses(){
+      setBar('טוען סטטוסים…');
+      const res = await apiGet('statuses');
+      renderStatusButtons(res.data || []);
+      setBar('סטטוסים נטענו', true);
+    }
+
+    async function loadUsersByGroup(){
+      setBar('טוען משתמשים…');
+      const res = await apiGet('users', { group: gSel.value });
+      const list = res.data || [];
+      uSel.innerHTML = '';
+      list.forEach(u=>{
+        const o = document.createElement('option');
+        o.value = u.display_name; o.textContent = u.display_name;
+        uSel.appendChild(o);
+      });
+      if (list.length === 0) setBar('אין משתמשים למחלקה שנבחרה', false);
+      else setBar('', true);
+      loadProfile();
+    }
+
+    // -------- Actions --------
+    nowBt.onclick = ()=>{ start.value = isoLocalMinutes(new Date()); };
+
+    saveB.onclick = async ()=>{
+      if (!selectedStatusCode){
+        setBar('בחר סטטוס לפני שמירה', false);
+        return;
+      }
+      saveProfile();
+      setBar('שומר…');
+      try{
+        await apiCreateEvent({
+          user: uSel.value,
+          group: gSel.value,
+          status_code: selectedStatusCode,
+          starts_at: start.value ? new Date(start.value).toISOString() : new Date().toISOString(),
+          ends_at: endI.value ? new Date(endI.value).toISOString() : '',
+          source: 'user'
+        });
+        setBar('עודכן בהצלחה ✔', true);
+        showToast('עודכן'); // טוסט קטן אחרי שמירה מוצלחת
+      } catch(err){
+        setBar('שגיאה בשמירה: ' + err.message, false);
+        alert('שגיאה: ' + err.message);
+      }
+    };
+
+    gSel.onchange = loadUsersByGroup;
+
+    // -------- Init --------
+    (async function init(){
+      try{
+        start.value = isoLocalMinutes(new Date());
+        await loadGroups();
+        await loadStatuses();
+        await loadUsersByGroup();
+      } catch(err){
+        setBar('שגיאה באתחול: ' + err.message, false);
+        console.error(err);
+      }
+    })();
   </script>
 </body>
 </html>
