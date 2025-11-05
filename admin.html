@@ -35,8 +35,6 @@
     }
     .status-btn:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
     .status-btn.selected{outline:3px solid #00000022}
-    /* מסתיר את ה-select הישן כדי לשמור תאימות לקוד */
-    #statusSel{display:none}
   </style>
 </head>
 <body>
@@ -54,10 +52,8 @@
     <div class="hint">המערכת תזכור את הבחירה לפעם הבאה.</div>
 
     <label>סטטוס:</label>
-    <!-- כפתורי סטטוס ייבנו כאן -->
+    <!-- כפתורי הסטטוס נטענים דינמית לפה -->
     <div id="statusButtons" class="status-grid"></div>
-    <!-- משאיר את ה-select כדי לא לשבור לוגיקה קיימת; מוסתר ב-CSS -->
-    <select id="statusSel"></select>
 
     <label>התחלה:</label>
     <div style="display:flex;gap:8px">
@@ -78,7 +74,6 @@
     const bar   = document.getElementById('status');
     const gSel  = document.getElementById('group');
     const uSel  = document.getElementById('user');
-    const sSel  = document.getElementById('statusSel'); // נשאר קיים (מוסתר), נסנכרן אליו את הבחירה
     const statusBtnsWrap = document.getElementById('statusButtons');
     const start = document.getElementById('start_time');
     const endI  = document.getElementById('end_time');
@@ -171,6 +166,7 @@
         const btn = document.createElement('div');
         btn.className = 'status-btn';
         btn.textContent = s.label;
+
         // צבע רקע מה-Sheet
         const bg = s.color_hex || '#e0e0e0';
         btn.style.background = bg;
@@ -179,7 +175,6 @@
 
         btn.onclick = ()=>{
           selectedStatusCode = s.code;
-          sSel.value = s.code; // שומר תאימות ללוגיקה קיימת
           // עדכון ויזואלי
           [...statusBtnsWrap.children].forEach(el=>el.classList.remove('selected'));
           btn.classList.add('selected');
@@ -192,7 +187,6 @@
 
       // אין בחירה ברירת מחדל
       selectedStatusCode = null;
-      sSel.value = '';
       setSaveEnabled(false);
     }
 
@@ -216,13 +210,6 @@
       setBar('טוען סטטוסים…');
       const res = await apiGet('statuses');
       const list = res.data || [];
-      // שומר את ה-select מסונכרן (מוסתר), אבל הבניה העיקרית היא כפתורים:
-      sSel.innerHTML = '';
-      list.forEach(s=>{
-        const o = document.createElement('option');
-        o.value = s.code; o.textContent = s.label;
-        sSel.appendChild(o);
-      });
       renderStatusButtons(list);
       setBar('סטטוסים נטענו', true);
     }
@@ -246,7 +233,6 @@
     nowBt.onclick = ()=>{ start.value = isoLocalMinutes(new Date()); };
 
     saveB.onclick = async ()=>{
-      // חסימה אם אין בחירת סטטוס
       if (!selectedStatusCode){
         setBar('בחר סטטוס לפני שמירה', false);
         return;
@@ -257,7 +243,7 @@
         await apiCreateEvent({
           user: uSel.value,
           group: gSel.value,
-          status_code: selectedStatusCode, // הערך מהכפתור
+          status_code: selectedStatusCode,
           starts_at: start.value ? new Date(start.value).toISOString() : new Date().toISOString(),
           ends_at: endI.value ? new Date(endI.value).toISOString() : '',
           source: 'user'
