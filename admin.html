@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>דשבורד מנהל</title>
+  <style>
+    body{font-family:system-ui,Arial;margin:20px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ddd;padding:8px}
+    .pill{padding:4px 8px;border-radius:999px;display:inline-block;border:1px solid #ccc}
+    .controls{margin:10px 0}
+  </style>
+</head>
+<body>
+  <h1>דשבורד מנהל</h1>
+  <div class="controls">
+    <label>קבוצה:
+      <select id="group">
+        <option>מכלול רפואה</option>
+        <option>תאג"ד מפח"ט</option>
+      </select>
+    </label>
+    <label>זמן ייחוס:
+      <input type="datetime-local" id="at"/>
+    </label>
+    <button id="refresh">רענן</button>
+  </div>
+
+  <h3>תמונת מצב</h3>
+  <div id="summary"></div>
+  <table>
+    <thead><tr><th>שם</th><th>סטטוס</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="./config.js"></script>
+  <script>
+    const S = window.APP_CONFIG;
+    const el = id=>document.getElementById(id);
+    const gSel=el('group'), atInp=el('at'), tbody=el('tbody'), sum=el('summary');
+
+    function hexToRgb(hex){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||''); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; }
+    function pillStyleFromHex(hex,alpha=0.15){ const rgb=hexToRgb(hex); if(!rgb) return {bg:'#eee',color:'#000',border:'#ddd'}; return {bg:`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`,color:hex,border:hex}; }
+    function toLocalInputValue(d){ const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+    async function apiGet(path, params={}){
+      const url = new URL(S.API_URL);
+      url.searchParams.set('path', path);
+      url.searchParams.set('secret', S.SECRET);
+      Object.entries(params).forEach(([k,v])=> url.searchParams.set(k,v));
+      const r = await fetch(url);
+      return r.json();
+    }
+
+    async function loadNow(){
+      const params = { group: gSel.value };
+      if (atInp.value) params.at = new Date(atInp.value).toISOString();
+      const res = await apiGet('now', params);
+      const rows = res.data || [];
+
+      tbody.innerHTML='';
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = r.user;
+        const td2 = document.createElement('td');
+        const pill = document.createElement('span'); pill.className='pill';
+        pill.textContent = r.status_label || '—';
+        const st = pillStyleFromHex(r.color_hex);
+        pill.style.background=st.bg; pill.style.color=st.color; pill.style.border=`1px solid ${st.border}`;
+        td2.appendChild(pill);
+        tr.append(td1, td2);
+        tbody.appendChild(tr);
+      });
+
+      // ספירה לפי סטטוס
+      const counts = {};
+      rows.forEach(r=>{ const k = r.status_label || 'ללא'; counts[k]=(counts[k]||0)+1; });
+      sum.innerHTML = Object.entries(counts).map(([k,v])=> `<span class="pill" style="background:#eee;margin:0 6px 6px 0">${k}: ${v}</span>`).join('');
+    }
+
+    el('refresh').onclick = loadNow;
+    (function init(){ atInp.value = toLocalInputValue(new Date()); loadNow(); })();
+  </script>
+</body>
+</html>
