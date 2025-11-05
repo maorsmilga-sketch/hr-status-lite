@@ -33,6 +33,8 @@
         <select id="group"></select>
       </label>
       <button id="refresh">רענן</button>
+      <!-- תוספת: כפתור סינון -->
+      <button id="toggleOnly">הצג רק עם סטטוס</button>
     </div>
   </div>
 
@@ -88,9 +90,13 @@
     const tbody = document.getElementById('tbody');
     const summary = document.getElementById('summary');
     const snapText = document.getElementById('snapText');
+    const refreshBtn = document.getElementById('refresh');
+    const toggleOnlyBtn = document.getElementById('toggleOnly');
 
     const SNAP_AT = new Date(); // רגע פתיחת הדף
     snapText.textContent = SNAP_AT.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
+
+    let onlyWithStatus = false; // דגל הסינון
 
     function toLocal(dtStr){
       if (!dtStr) return '—';
@@ -116,14 +122,14 @@
         o.value = g; o.textContent = g;
         gSel.appendChild(o);
       });
-      gSel.value = '__ALL__'; // ברירת מחדל: שתי הקבוצות יחד
+      gSel.value = '__ALL__'; // ברירת מחדל: כל הקבוצות יחד
     }
 
     // --- חישוב תמונת מצב + "מתי עודכן" לכל משתמש ---
     async function loadSnapshot(){
       clearMsg();
       try{
-        // 1) קוראים את "now" לקבלת הסטטוס הנוכחי לכל משתמש (לפי סינון קבוצה אם צריך)
+        // 1) סטטוס נוכחי לכל משתמש בזמן פתיחת הדף
         const groupVal = gSel.value;
         const nowParams = {};
         if (groupVal && groupVal !== '__ALL__') nowParams.group = groupVal;
@@ -131,7 +137,12 @@
         const nowRes = await apiGet('now', nowParams);
         const currentRows = nowRes.data || [];
 
-        // 2) קוראים את "events" ומאתרים לכל משתמש את האירוע הפעיל בזמן SNAP_AT כדי להוציא starts_at (כלומר מתי הסטטוס הזה עודכן)
+        // סינון לפי הדגל (התוספת היחידה בפונקציונליות)
+        const rowsToShow = onlyWithStatus
+          ? currentRows.filter(r => r && r.status_code)
+          : currentRows;
+
+        // 2) מאתרים לכל משתמש את זמן תחילת האירוע הפעיל (starts_at)
         const evRes = await apiGet('events');
         const events = (evRes.data || []).map(e => ({
           ...e,
@@ -139,8 +150,6 @@
           ends_at:   e.ends_at   ? new Date(e.ends_at)   : null
         }));
         const isActive = (ev,t)=> ev.starts_at && ev.starts_at <= t && (!ev.ends_at || ev.ends_at > t);
-
-        // מפה: user -> starts_at של האירוע הפעיל
         const lastUpdateByUser = {};
         events.forEach(ev=>{
           if (!isActive(ev, SNAP_AT)) return;
@@ -150,9 +159,9 @@
           }
         });
 
-        // 3) רנדר טבלה
+        // 3) טבלה
         tbody.innerHTML = '';
-        currentRows.forEach(r=>{
+        rowsToShow.forEach(r=>{
           const tr = document.createElement('tr');
 
           const tdUser  = document.createElement('td'); tdUser.textContent  = r.user;
@@ -173,9 +182,9 @@
           tbody.appendChild(tr);
         });
 
-        // 4) סיכום לפי סטטוס
+        // 4) סיכום לפי סטטוס (על המסונן)
         const counts = {};
-        currentRows.forEach(r=>{ const k = r.status_label || 'ללא'; counts[k]=(counts[k]||0)+1; });
+        rowsToShow.forEach(r=>{ const k = r.status_label || 'ללא'; counts[k]=(counts[k]||0)+1; });
         summary.innerHTML = '';
         Object.entries(counts).forEach(([k,v])=>{
           const chip = document.createElement('span');
@@ -190,8 +199,13 @@
     }
 
     // --- אירועים ---
-    document.getElementById('refresh').onclick = loadSnapshot;
+    refreshBtn.onclick = loadSnapshot;
     gSel.onchange = loadSnapshot;
+    toggleOnlyBtn.onclick = ()=>{
+      onlyWithStatus = !onlyWithStatus;
+      toggleOnlyBtn.textContent = onlyWithStatus ? 'הצג את כולם' : 'הצג רק עם סטטוס';
+      loadSnapshot();
+    };
 
     // --- init ---
     (async function init(){
