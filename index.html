@@ -14,14 +14,14 @@
     button.secondary{background:#0d6efd20;color:#0d6efd;border:1px solid #0d6efd}
     button:hover{filter:brightness(0.95)}
     .hint{font-size:12px;color:#666}
-    .statusbar{background:#fff;border:1px solid #e5e9f2;border-radius:8px;padding:10px;margin:0 auto 14px;max-width:520px;color:#333}
-    .statusbar.ok{border-color:#27ae60}
-    .statusbar.err{border-color:#c0392b;color:#c0392b}
+    .statusbar{display:none;background:#fff;border:1px solid #e5e9f2;border-radius:8px;padding:10px;margin:0 auto 14px;max-width:520px;color:#333}
+    .statusbar.ok{border-color:#27ae60;display:block}
+    .statusbar.err{border-color:#c0392b;color:#c0392b;display:block}
   </style>
 </head>
 <body>
   <h1>עדכון סטטוס</h1>
-  <div id="status" class="statusbar">טוען…</div>
+  <div id="status" class="statusbar"></div>
 
   <div class="wrap">
     <label>קבוצה:
@@ -49,10 +49,8 @@
     <button id="save">שמור</button>
   </div>
 
-  <!-- חשוב: הקובץ חייב להכיל את APP_CONFIG עם API_URL ו-SECRET -->
   <script src="config.js"></script>
   <script>
-    // -------- References --------
     const bar   = document.getElementById('status');
     const gSel  = document.getElementById('group');
     const uSel  = document.getElementById('user');
@@ -62,17 +60,20 @@
     const nowBt = document.getElementById('start_now');
     const saveB = document.getElementById('save');
 
-    // -------- UI helpers --------
     function setBar(msg, ok=null){
+      if (ok === null) { bar.style.display = 'none'; return; }
       bar.textContent = msg;
       bar.classList.remove('ok','err');
-      if (ok === true) bar.classList.add('ok');
-      if (ok === false) bar.classList.add('err');
+      bar.style.display = 'block';
+      if (ok) bar.classList.add('ok');
+      else bar.classList.add('err');
     }
+
     function isoLocalMinutes(d){
       const pad=n=>String(n).padStart(2,'0');
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
+
     function loadProfile(){
       try{
         const g = localStorage.getItem('selectedGroup');
@@ -81,12 +82,13 @@
         if (u && [...uSel.options].some(o=>o.value===u)) uSel.value=u;
       }catch(_){}
     }
+
     function saveProfile(){
       localStorage.setItem('selectedGroup', gSel.value);
       localStorage.setItem('selectedUser', uSel.value);
     }
 
-    // -------- JSONP core (עוקף CORS) --------
+    // --- JSONP core ---
     function jsonp(path, params = {}){
       return new Promise((resolve, reject)=>{
         if (!window.APP_CONFIG) return reject(new Error('config.js missing'));
@@ -108,9 +110,10 @@
 
     async function apiGet(path, params={}) {
       const res = await jsonp(path, params);
-      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
+      if (!res.ok) throw new Error(res.error || 'API error');
       return res;
     }
+
     async function apiCreateEvent(payload){
       const res = await jsonp('create_event', {
         user: payload.user,
@@ -120,60 +123,61 @@
         ends_at: payload.ends_at || '',
         source: payload.source || 'user'
       });
-      if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
+      if (!res.ok) throw new Error(res.error || 'API error');
       return res;
     }
 
-    // -------- Loaders --------
     async function loadGroups(){
-      setBar('טוען קבוצות…');
-      const res = await apiGet('users'); // כל המשתמשים
-      const users = res.data || [];
-      const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
-      gSel.innerHTML = '';
-      groups.forEach(g=>{
-        const o = document.createElement('option');
-        o.value = g; o.textContent = g;
-        gSel.appendChild(o);
-      });
-      if (groups.length === 0) setBar('לא נמצאו קבוצות. בדוק את לשונית users ואת ה-SECRET.', false);
-      else setBar('קבוצות נטענו', true);
+      try {
+        const res = await apiGet('users');
+        const users = res.data || [];
+        const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
+        gSel.innerHTML = '';
+        groups.forEach(g=>{
+          const o = document.createElement('option');
+          o.value = g; o.textContent = g;
+          gSel.appendChild(o);
+        });
+      } catch(err) {
+        setBar('שגיאה בטעינת קבוצות: '+err.message, false);
+      }
     }
 
     async function loadStatuses(){
-      setBar('טוען סטטוסים…');
-      const res = await apiGet('statuses');
-      const list = res.data || [];
-      sSel.innerHTML = '';
-      list.forEach(s=>{
-        const o = document.createElement('option');
-        o.value = s.code; o.textContent = s.label;
-        sSel.appendChild(o);
-      });
-      setBar('סטטוסים נטענו', true);
+      try {
+        const res = await apiGet('statuses');
+        const list = res.data || [];
+        sSel.innerHTML = '';
+        list.forEach(s=>{
+          const o = document.createElement('option');
+          o.value = s.code; o.textContent = s.label;
+          sSel.appendChild(o);
+        });
+      } catch(err){
+        setBar('שגיאה בטעינת סטטוסים: '+err.message, false);
+      }
     }
 
     async function loadUsersByGroup(){
-      setBar('טוען משתמשים…');
-      const res = await apiGet('users', { group: gSel.value });
-      const list = res.data || [];
-      uSel.innerHTML = '';
-      list.forEach(u=>{
-        const o = document.createElement('option');
-        o.value = u.display_name; o.textContent = u.display_name;
-        uSel.appendChild(o);
-      });
-      if (list.length === 0) setBar('אין משתמשים לקבוצה שנבחרה', false);
-      else setBar('משתמשים נטענו', true);
-      loadProfile();
+      try {
+        const res = await apiGet('users', { group: gSel.value });
+        const list = res.data || [];
+        uSel.innerHTML = '';
+        list.forEach(u=>{
+          const o = document.createElement('option');
+          o.value = u.display_name; o.textContent = u.display_name;
+          uSel.appendChild(o);
+        });
+        loadProfile();
+      } catch(err){
+        setBar('שגיאה בטעינת משתמשים: '+err.message, false);
+      }
     }
 
-    // -------- Actions --------
     nowBt.onclick = ()=>{ start.value = isoLocalMinutes(new Date()); };
 
     saveB.onclick = async ()=>{
       saveProfile();
-      setBar('שומר…');
       try{
         await apiCreateEvent({
           user: uSel.value,
@@ -184,15 +188,14 @@
           source: 'user'
         });
         setBar('עודכן בהצלחה ✔', true);
+        setTimeout(()=>setBar('', null), 2500);
       } catch(err){
         setBar('שגיאה בשמירה: ' + err.message, false);
-        alert('שגיאה: ' + err.message);
       }
     };
 
     gSel.onchange = loadUsersByGroup;
 
-    // -------- Init --------
     (async function init(){
       try{
         start.value = isoLocalMinutes(new Date());
@@ -201,7 +204,6 @@
         await loadUsersByGroup();
       } catch(err){
         setBar('שגיאה באתחול: ' + err.message, false);
-        console.error(err);
       }
     })();
   </script>
