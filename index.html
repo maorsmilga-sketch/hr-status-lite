@@ -132,12 +132,12 @@
   <div id="status" class="statusbar">טוען…</div>
 
   <div class="wrap">
-    <label>מחלקה:
-      <select id="group"></select>
-    </label>
+    <!-- הוסר שדה מחלקה -->
 
     <label>שם:
-      <select id="user"></select>
+      <!-- שדה קלט עם השלמה אוטומטית -->
+      <input id="userInput" type="text" list="usersList" placeholder="הקלד/י שם..." autocomplete="off" />
+      <datalist id="usersList"></datalist>
     </label>
     <div class="hint">המערכת תזכור את הבחירה לפעם הבאה.</div>
 
@@ -163,14 +163,19 @@
   <script>
     // -------- References --------
     const bar   = document.getElementById('status');
-    const gSel  = document.getElementById('group');
-    const uSel  = document.getElementById('user');
     const statusBtnsWrap = document.getElementById('statusButtons');
     const start = document.getElementById('start_time');
     const endI  = document.getElementById('end_time');
     const nowBt = document.getElementById('start_now');
     const saveB = document.getElementById('save');
     const toast = document.getElementById('toast');
+
+    // חדש: שדה שם + רשימת הצעות
+    const userInput = document.getElementById('userInput');
+    const usersList = document.getElementById('usersList');
+
+    // מאגר משתמשים מלא (נטען פעם אחת)
+    let ALL_USERS = [];
 
     // מצב בחירה
     let selectedStatusCode = null;
@@ -188,15 +193,12 @@
     }
     function loadProfile(){
       try{
-        const g = localStorage.getItem('selectedGroup');
         const u = localStorage.getItem('selectedUser');
-        if (g && [...gSel.options].some(o=>o.value===g)) gSel.value=g;
-        if (u && [...uSel.options].some(o=>o.value===u)) uSel.value=u;
+        if (u) userInput.value = u;
       }catch(_){}
     }
     function saveProfile(){
-      localStorage.setItem('selectedGroup', gSel.value);
-      localStorage.setItem('selectedUser', uSel.value);
+      localStorage.setItem('selectedUser', userInput.value);
     }
     function setSaveEnabled(enabled){
       saveB.disabled = !enabled;
@@ -204,7 +206,6 @@
       saveB.style.cursor = enabled ? 'pointer' : 'not-allowed';
     }
 
-    // Toast helper (חיווי קטן)
     // Toast helper
     let toastTimer = null;
     function showToast(message='עודכן') {
@@ -290,19 +291,21 @@
     }
 
     // -------- Loaders --------
-    async function loadGroups(){
-      setBar('טוען מחלקות…');
-      const res = await apiGet('users');
-      const users = res.data || [];
-      const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
-      gSel.innerHTML = '';
-      groups.forEach(g=>{
-        const o = document.createElement('option');
-        o.value = g; o.textContent = g;
-        gSel.appendChild(o);
+    async function loadAllUsers(){
+      setBar('טוען שמות…');
+      const res = await apiGet('users'); // טוען את כל המשתמשים בפעם אחת
+      ALL_USERS = res.data || [];
+
+      // בניית רשימת ההשלמה (datalist)
+      usersList.innerHTML = '';
+      ALL_USERS.forEach(u=>{
+        const opt = document.createElement('option');
+        opt.value = u.display_name;
+        usersList.appendChild(opt);
       });
-      if (groups.length === 0) setBar('לא נמצאו מחלקות. בדוק את לשונית users ואת ה-SECRET.', false);
-      else setBar('מחלקות נטענו', true);
+
+      setBar('שמות נטענו', true);
+      loadProfile();
     }
 
     async function loadStatuses(){
@@ -312,36 +315,43 @@
       setBar('סטטוסים נטענו', true);
     }
 
-    async function loadUsersByGroup(){
-      setBar('טוען שמות…');
-      const res = await apiGet('users', { group: gSel.value });
-      const list = res.data || [];
-      uSel.innerHTML = '';
-      list.forEach(u=>{
-        const o = document.createElement('option');
-        o.value = u.display_name; o.textContent = u.display_name;
-        uSel.appendChild(o);
-      });
-      if (list.length === 0) setBar('אין שמות למחלקה שנבחרה', false);
-       setBar('');
-   
-      loadProfile();
+    function findUserByName(name){
+      const n = String(name || '').trim();
+      if (!n) return null;
+      // התאמה מדויקת לתצוגה
+      const exact = ALL_USERS.find(u => String(u.display_name).trim() === n);
+      if (exact) return exact;
+      // אם אין התאמה מדויקת – ננסה case-insensitive
+      const lower = n.toLowerCase();
+      return ALL_USERS.find(u => String(u.display_name).trim().toLowerCase() === lower) || null;
     }
 
     // -------- Actions --------
     nowBt.onclick = ()=>{ start.value = isoLocalMinutes(new Date()); };
 
+    // הפעלה/נטרול כפתור שמירה לפי מילוי שם וסטטוס
+    userInput.addEventListener('input', ()=>{
+      const u = findUserByName(userInput.value);
+      setSaveEnabled(!!u && !!selectedStatusCode);
+    });
+
     saveB.onclick = async ()=>{
+      const selectedUser = findUserByName(userInput.value);
+      if (!selectedUser){
+        setBar('בחר/י שם מהרשימה', false);
+        return;
+      }
       if (!selectedStatusCode){
         setBar('בחר סטטוס לפני שמירה', false);
         return;
       }
+
       saveProfile();
       setBar('שומר…');
       try{
         await apiCreateEvent({
-          user: uSel.value,
-          group: gSel.value,
+          user: selectedUser.display_name,
+          group: selectedUser.group || '', // נשלח את המחלקה של המשתמש מאחורי הקלעים
           status_code: selectedStatusCode,
           starts_at: start.value ? new Date(start.value).toISOString() : new Date().toISOString(),
           ends_at: endI.value ? new Date(endI.value).toISOString() : '',
@@ -356,15 +366,12 @@
       }
     };
 
-    gSel.onchange = loadUsersByGroup;
-
     // -------- Init --------
     (async function init(){
       try{
         start.value = isoLocalMinutes(new Date());
-        await loadGroups();
+        await loadAllUsers();   // במקום מחלקות + משתמשים לפי מחלקה
         await loadStatuses();
-        await loadUsersByGroup();
       } catch(err){
         setBar('שגיאה באתחול: ' + err.message, false);
         console.error(err);
@@ -373,8 +380,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
