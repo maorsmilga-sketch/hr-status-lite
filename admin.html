@@ -52,12 +52,12 @@
 
   <div class="panel">
     <div class="controls">
+      <label>קבוצה:
       <label>מחלקה:
         <select id="group"></select>
       </label>
       <button id="refresh">רענן</button>
-      <!-- טקסט הכפתור במצב "מכובה" -->
-      <button id="toggleOnly">הצג חיילים עם סטטוס</button>
+      <button id="toggleOnly">הצג רק עם סטטוס</button>
     </div>
   </div>
 
@@ -65,6 +65,7 @@
     <h3 style="margin-top:0">תמונת מצב</h3>
     <div id="summary" class="chips"></div>
     <table>
+      <thead><tr><th>שם</th><th>קבוצה</th><th>סטטוס</th><th>עודכן</th></tr></thead>
       <thead><tr><th>שם</th><th>מחלקה</th><th>סטטוס</th><th>עודכן</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -116,10 +117,7 @@
     const SNAP_AT = new Date();
     snapText.textContent = SNAP_AT.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
 
-    // ברירת מחדל: מציגים רק חיילים עם סטטוס
-    let onlyWithStatus = true;
-    // טקסט הכפתור צריך לשקף את הפעולה ההפוכה
-    toggleOnlyBtn.textContent = 'הצג את כולם';
+    let onlyWithStatus = false;
 
     function toLocal(dtStr){
       if (!dtStr) return '—';
@@ -137,6 +135,7 @@
       gSel.innerHTML = '';
       const allOpt = document.createElement('option');
       allOpt.value = '__ALL__';
+      allOpt.textContent = 'כל הקבוצות';
       allOpt.textContent = 'כל המחלקות';
       gSel.appendChild(allOpt);
       groups.forEach(g=>{
@@ -164,4 +163,72 @@
         const evRes = await apiGet('events');
         const events = (evRes.data || []).map(e => ({
           ...e,
-          sta
+          starts_at: e.starts_at ? new Date(e.starts_at) : null,
+          ends_at:   e.ends_at   ? new Date(e.ends_at)   : null
+        }));
+        const isActive = (ev,t)=> ev.starts_at && ev.starts_at <= t && (!ev.ends_at || ev.ends_at > t);
+        const lastUpdateByUser = {};
+        events.forEach(ev=>{
+          if (!isActive(ev, SNAP_AT)) return;
+          const key = String(ev.user);
+          if (!lastUpdateByUser[key] || (lastUpdateByUser[key] < ev.starts_at)){
+            lastUpdateByUser[key] = ev.starts_at;
+          }
+        });
+
+        tbody.innerHTML = '';
+        rowsToShow.forEach(r=>{
+          const tr = document.createElement('tr');
+
+          const tdUser  = document.createElement('td'); tdUser.textContent  = r.user;
+          const tdGroup = document.createElement('td'); tdGroup.textContent = r.group;
+
+          const tdStat = document.createElement('td');
+          const pill = document.createElement('span'); pill.className='pill';
+          pill.textContent = r.status_label || '—';
+          const st = pillStyleFromHex(r.color_hex);
+          pill.style.background=st.bg; pill.style.color=st.color; pill.style.border=`1px solid ${st.border}`;
+          tdStat.appendChild(pill);
+
+          const tdWhen = document.createElement('td');
+          const dt = lastUpdateByUser[r.user] ? lastUpdateByUser[r.user].toISOString() : '';
+          tdWhen.textContent = toLocal(dt);
+
+          tr.append(tdUser, tdGroup, tdStat, tdWhen);
+          tbody.appendChild(tr);
+        });
+
+        const counts = {};
+        rowsToShow.forEach(r=>{ const k = r.status_label || 'ללא'; counts[k]=(counts[k]||0)+1; });
+        summary.innerHTML = '';
+        Object.entries(counts).forEach(([k,v])=>{
+          const chip = document.createElement('span');
+          chip.className = 'pill';
+          chip.textContent = `${k}: ${v}`;
+          summary.appendChild(chip);
+        });
+
+      }catch(err){
+        showErr('שגיאה בטעינת תמונת מצב: ' + err.message);
+      }
+    }
+
+    refreshBtn.onclick = loadSnapshot;
+    gSel.onchange = loadSnapshot;
+    toggleOnlyBtn.onclick = ()=>{
+      onlyWithStatus = !onlyWithStatus;
+      toggleOnlyBtn.textContent = onlyWithStatus ? 'הצג את כולם' : 'הצג רק עם סטטוס';
+      loadSnapshot();
+    };
+
+    (async function init(){
+      try{
+        await loadGroups();
+        await loadSnapshot();
+      }catch(err){
+        showErr('שגיאה באתחול: ' + err.message);
+      }
+    })();
+  </script>
+</body>
+</html>
