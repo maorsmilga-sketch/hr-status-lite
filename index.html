@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>רפואה חטיבה 2 עדכון סטטוס</title>
+  <title> רפואה חטיבה 2 עדכון סטטוס</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -20,9 +20,8 @@
       text-align: center;
       margin-bottom: 10px;
     }
-    /* הגדלה עדינה של הלוגו */
     header img {
-      width: 110px;           /* היה ~90px */
+      width: 240px; /* הגדלה עדינה של הלוגו */
       height: auto;
       display: block;
       margin: 0 auto 5px;
@@ -59,21 +58,39 @@
     /* כפתורי סטטוס */
     .status-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
     .status-btn{
+      position: relative;          /* כדי לאפשר אייקון ✓ פנימי */
       flex:1 1 calc(50% - 10px);
       min-width:calc(50% - 10px);
-      padding:10px;
-      border-radius:10px;
+      padding:12px 12px;
+      border-radius:12px;
       border:1px solid #e0e0e0;
       cursor:pointer;
       text-align:center;
       user-select:none;
-      transition:transform .05s ease, box-shadow .1s ease;
+      transition:transform .08s ease, box-shadow .12s ease, outline-color .12s ease;
       background:#fff;
       color:#222;
       font-weight:bold;
     }
     .status-btn:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
-    .status-btn.selected{outline:3px solid #00000022}
+    /* אינדיקציה חזקה יותר לבחירה: טבעת הדגשה ואייקון ✓ */
+    .status-btn.selected{
+      box-shadow:0 0 0 3px rgba(25,118,210,.35), 0 6px 14px rgba(0,0,0,.10);
+      transform:translateY(-1px);
+    }
+    .status-btn.selected::after{
+      content:"✓";
+      position:absolute;
+      top:8px; left:8px;
+      width:22px; height:22px;
+      border-radius:50%;
+      background:#ffffffcc;
+      color:#1976d2;
+      font-weight:900;
+      font-size:14px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 1px 3px rgba(0,0,0,.15);
+    }
 
     /* טוסט קטן לעדכון */
     .toast {
@@ -92,10 +109,7 @@
       transition: opacity .18s ease, transform .18s ease;
       z-index: 1000;
     }
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -179,7 +193,7 @@
       saveB.style.cursor = enabled ? 'pointer' : 'not-allowed';
     }
 
-    // Toast helper (חיווי קטן)
+    // Toast helper
     let toastTimer = null;
     function showToast(message='עודכן') {
       toast.textContent = message;
@@ -251,7 +265,7 @@
         btn.onclick = ()=>{
           selectedStatusCode = s.code;
           [...statusBtnsWrap.children].forEach(el=>el.classList.remove('selected'));
-          btn.classList.add('selected');
+          btn.classList.add('selected');     // אינדיקציה חזקה יותר (CSS למעלה)
           setSaveEnabled(true);
         };
 
@@ -320,7 +334,7 @@
           source: 'user'
         });
         setBar('עודכן בהצלחה ✔', true);
-        showToast('עודכן'); // טוסט קטן אחרי שמירה מוצלחת
+        showToast('עודכן'); // חיווי קטן
       } catch(err){
         setBar('שגיאה בשמירה: ' + err.message, false);
         alert('שגיאה: ' + err.message);
