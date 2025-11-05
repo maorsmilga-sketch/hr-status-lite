@@ -43,7 +43,7 @@
     .pill{padding:4px 10px;border-radius:999px;border:1px solid #ccc;display:inline-block;white-space:nowrap}
     .chips{display:flex;flex-wrap:wrap;gap:8px}
 
-    /* === שכבת טעינה ממורכזת === */
+    /* שכבת טעינה */
     .loading-overlay{
       position:fixed;
       inset:0;
@@ -63,6 +63,8 @@
       font-weight:bold;
       color:#1976d2;
     }
+    /* תיקון חד-משמעי להסתרה */
+    [hidden]{ display:none !important; }
   </style>
 </head>
 <body>
@@ -271,9 +273,8 @@
       }catch(err){
         showErr('שגיאה באתחול: ' + err.message);
       } finally {
-        // ביטחון: ודא שה־Loader מוסתר בסוף האתחול
+        // ביטחון: הסתר בכל מקרה
         loadingOverlay.hidden = true;
-        // אפס מונה, למקרה של סטייה
         _loadingCount = 0;
       }
     })();
