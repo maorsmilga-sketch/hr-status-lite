@@ -1,127 +1,181 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>עדכון סטטוס</title>
   <style>
-    body{font-family:system-ui,Arial;margin:20px}
-    .row{margin:8px 0}
-    .hint{font-size:12px;color:#666}
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+      color: #222;
+      text-align: center;
+      padding: 30px;
+    }
+    h1 {
+      color: #1976d2;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    select, input, button {
+      font-size: 16px;
+      margin-top: 5px;
+      padding: 8px;
+      width: 250px;
+      max-width: 90%;
+    }
+    button {
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background-color: #125ca1;
+    }
   </style>
 </head>
 <body>
   <h1>עדכון סטטוס</h1>
 
-  <div class="row">
-    <label>קבוצה:
-      <select id="group"></select>
-    </label>
-  </div>
-  <div class="row">
-    <label>שם:
-      <select id="user"></select>
-    </label>
-    <div class="hint">המערכת תזכור את הבחירה לפעם הבאה.</div>
-  </div>
-  <div class="row">
-    <label>סטטוס:
-      <select id="status"></select>
-    </label>
-  </div>
-  <div class="row">
-    <label>התחלה:
-      <input type="datetime-local" id="startsAt">
-    </label>
-    <button id="nowBtn">התחל מעכשיו</button>
-  </div>
-  <div class="row">
-    <label>סיום (אופציונלי):
-      <input type="datetime-local" id="endsAt">
-    </label>
-  </div>
-  <div class="row">
-    <button id="submitBtn">שמור</button>
-  </div>
-  <div id="msg"></div>
+  <label>קבוצה:
+    <select id="group"></select>
+  </label>
 
-  <script src="./config.js"></script>
+  <label>שם:
+    <select id="user"></select>
+  </label>
+  <small>המערכת תזכור את הבחירה לפעם הבאה.</small>
+
+  <label>סטטוס:
+    <select id="status"></select>
+  </label>
+
+  <label>התחלה:
+    <input type="datetime-local" id="start_time" />
+    <button id="start_now" type="button">התחל מעכשיו</button>
+  </label>
+
+  <label>סיום (אופציונלי):
+    <input type="datetime-local" id="end_time" />
+  </label>
+
+  <button id="save">שמור</button>
+
+  <script src="config.js"></script>
   <script>
-    const S = window.APP_CONFIG;
-    const GROUPS = ["מכלול רפואה","תאג\"ד מפח\"ט"];
-    const el = id => document.getElementById(id);
-    const gSel=el('group'), uSel=el('user'), sSel=el('status'),
-          starts=el('startsAt'), ends=el('endsAt'), msg=el('msg');
+    const gSel = document.getElementById('group');
+    const uSel = document.getElementById('user');
+    const sSel = document.getElementById('status');
+    const startInput = document.getElementById('start_time');
+    const endInput = document.getElementById('end_time');
+    const startNowBtn = document.getElementById('start_now');
+    const saveBtn = document.getElementById('save');
 
-    // צבעי "גלולה" יפים בתפריטים
-    function hexToRgb(hex){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||''); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; }
-    function pillStyleFromHex(hex,alpha=0.25){ const rgb=hexToRgb(hex); if(!rgb) return {bg:'#eee',color:'#000'}; return {bg:`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`,color:hex}; }
+    const API = window.APP_CONFIG.API_URL;
+    const SECRET = window.APP_CONFIG.SECRET;
 
-    // שמירה מקומית "זכור אותי"
-    const LS_KEY='hrstatus.profile';
-    function saveProfile(){ localStorage.setItem(LS_KEY, JSON.stringify({group:gSel.value,user:uSel.value})); }
-    function loadProfile(){ try{ const p=JSON.parse(localStorage.getItem(LS_KEY)||'{}'); if(p.group) gSel.value=p.group; if(p.user) setTimeout(()=>uSel.value=p.user,300);}catch(_){} }
-
-    // קריאות API (פשוטות, בלי headers מיוחדים)
-    async function apiGet(path, params={}){
-      const url = new URL(S.API_URL);
-      url.searchParams.set('path', path);
-      url.searchParams.set('secret', S.SECRET);
-      Object.entries(params).forEach(([k,v])=> url.searchParams.set(k,v));
-      const r = await fetch(url);
-      return r.json();
-    }
-    async function apiPost(body){
-      const r = await fetch(S.API_URL, { method:'POST', body: JSON.stringify({...body, secret:S.SECRET}) });
+    async function apiGet(path, params={}) {
+      const query = new URLSearchParams({...params, secret: SECRET});
+      const r = await fetch(`${API}?path=${path}&${query}`);
       return r.json();
     }
 
-    async function loadGroups(){
-      GROUPS.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; gSel.appendChild(o); });
+    async function apiPost(path, body={}) {
+      const r = await fetch(`${API}?path=${path}&secret=${SECRET}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      return r.json();
     }
-    async function loadUsers(){
-      uSel.innerHTML='';
-      const res = await apiGet('users', { group:gSel.value });
-      (res.data||[]).forEach(u=>{ const o=document.createElement('option'); o.value=u.display_name; o.textContent=u.display_name; uSel.appendChild(o); });
+
+    // פונקציה חדשה: טעינת קבוצות דינמית מתוך הגיליון
+    async function loadGroupsDynamic(){
+      const res = await apiGet('users'); // בלי פילטר
+      const users = res.data || [];
+      const groups = [...new Set(users.map(u => String(u.group || '').trim()))].filter(Boolean);
+      gSel.innerHTML = '';
+      groups.forEach(g=>{
+        const o = document.createElement('option');
+        o.value = g;
+        o.textContent = g;
+        gSel.appendChild(o);
+      });
     }
+
     async function loadStatuses(){
-      sSel.innerHTML='';
       const res = await apiGet('statuses');
-      (res.data||[]).forEach(s=>{
-        const o=document.createElement('option');
-        o.value=s.code; o.textContent=s.label;
-        const st = pillStyleFromHex(s.color_hex,0.25);
-        o.style.background=st.bg; o.style.color=st.color;
+      const statuses = res.data || [];
+      sSel.innerHTML = '';
+      statuses.forEach(s=>{
+        const o = document.createElement('option');
+        o.value = s.code;
+        o.textContent = s.label;
         sSel.appendChild(o);
       });
     }
 
-    document.getElementById('nowBtn').onclick=()=>{
-      const d=new Date(), pad=n=>String(n).padStart(2,'0');
-      starts.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    async function loadUsers(){
+      const group = gSel.value;
+      const res = await apiGet('users', {group});
+      const users = res.data || [];
+      uSel.innerHTML = '';
+      users.forEach(u=>{
+        const o = document.createElement('option');
+        o.value = u.display_name;
+        o.textContent = u.display_name;
+        uSel.appendChild(o);
+      });
+      loadProfile();
+    }
+
+    function loadProfile(){
+      const savedUser = localStorage.getItem('selectedUser');
+      const savedGroup = localStorage.getItem('selectedGroup');
+      if(savedGroup && [...gSel.options].some(o=>o.value===savedGroup)){
+        gSel.value = savedGroup;
+      }
+      if(savedUser && [...uSel.options].some(o=>o.value===savedUser)){
+        uSel.value = savedUser;
+      }
+    }
+
+    function saveProfile(){
+      localStorage.setItem('selectedUser', uSel.value);
+      localStorage.setItem('selectedGroup', gSel.value);
+    }
+
+    startNowBtn.onclick = ()=>{
+      const now = new Date();
+      const local = now.toISOString().slice(0,16);
+      startInput.value = local;
     };
-    document.getElementById('submitBtn').onclick=async ()=>{
-      msg.textContent='שומר...'; saveProfile();
+
+    saveBtn.onclick = async ()=>{
       const payload = {
-        action:'create_event',
-        user: uSel.value,
+        display_name: uSel.value,
         group: gSel.value,
         status_code: sSel.value,
-        starts_at: starts.value ? new Date(starts.value).toISOString() : new Date().toISOString(),
-        ends_at: ends.value ? new Date(ends.value).toISOString() : '',
-        source: 'user'
+        start_time: startInput.value,
+        end_time: endInput.value
       };
-      const res = await apiPost(payload);
-      msg.textContent = res.ok ? 'עודכן!' : ('שגיאה: ' + res.error);
+      saveProfile();
+      const res = await apiPost('event', payload);
+      alert(res.ok ? 'עודכן בהצלחה!' : 'שגיאה בעדכון');
     };
 
-    gSel.onchange = ()=> loadUsers();
+    gSel.onchange = loadUsers;
 
     (async function init(){
-      await loadGroups();
+      await loadGroupsDynamic();
       await loadStatuses();
       await loadUsers();
-      loadProfile();
     })();
   </script>
 </body>
