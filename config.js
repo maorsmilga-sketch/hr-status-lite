@@ -1,4 +1,5 @@
 window.APP_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbwOjoHwbkl0AnIR5e1yHJq3eMCTcuDbe_Uk7A-ojE7vmLWRImfFM76N9DdhLjuyGtz4UA/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxg3I4s9tK-_8wvq_spA6JVrLMqZnLTWSRVCW68TyYrlOi8-SEVbIkGRcOwK7m0V_Ra3Q/exec',
   SECRET: '112233'
 };
+
