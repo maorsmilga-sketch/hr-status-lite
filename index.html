@@ -76,6 +76,43 @@
 
   <script src="config.js"></script>
   <script>
+    const bar=document.getElementById('status');
+    const uSel=document.getElementById('user');
+    const statusBtnsWrap=document.getElementById('statusButtons');
+    const start=document.getElementById('start_time');
+    const nowBt=document.getElementById('start_now');
+    const saveB=document.getElementById('save');
+    const toast=document.getElementById('toast');
+    const ariaLive=document.getElementById('ariaLive');
+    let selectedStatusCode=null,ALL_USERS=[];
+
+    function setBar(msg,ok=null){bar.textContent=msg;bar.classList.remove('ok','err');if(ok===true)bar.classList.add('ok');if(ok===false)bar.classList.add('err');ariaLive.textContent=msg||'';}
+    function isoLocalMinutes(d){const p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+    function loadProfile(){try{const u=localStorage.getItem('selectedUser');if(u&&[...uSel.options].some(o=>o.value===u))uSel.value=u;}catch(_){}} 
+    function saveProfile(){localStorage.setItem('selectedUser',uSel.value);}
+    function setSaveEnabled(en){saveB.disabled=!en;}
+
+    let toastTimer=null;function showToast(m='עודכן'){toast.textContent="✓ "+m;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1700);}
+
+    // -------- JSONP מתוקן עם פרוקסי מאובטח --------
+    function jsonp(path,params={}) {
+      return new Promise((resolve,reject)=>{
+        if(!window.APP_CONFIG||!window.APP_CONFIG.API_URL) return reject(new Error('config.js missing'));
+        let base;try{base=new URL(String(window.APP_CONFIG.API_URL),location.href);}catch(e){return reject(e);}
+        const q={...params,secret:window.APP_CONFIG.SECRET,path,_:Date.now()};
+        Object.entries(q).forEach(([k,v])=>base.searchParams.set(k,v));
+        const cb='cb_'+Math.random().toString(36).slice(2);
+        const proxy=new URL('https://jsonp.afeld.me/');
+        proxy.searchParams.set('callback',cb);
+        proxy.searchParams.set('url',base.toString());
+        const s=document.createElement('script');
+        s.src=proxy.toString();s.async=true;s.charset='utf-8';
+        let done=false;
+        const cleanup=()=>{if(window[cb])delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);};
+        const timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error('JSONP proxy timeout'));},12000);
+        window[cb]=(data)=>{if(done)return;done=true;clearTimeout(timer);cleanup();resolve(data);};
+        s.onerror=()=>{if(done)return;done=true;clearTimeout(timer);cleanup();reject(new Error('JSONP proxy load error'));};
+        (document.head||document.documentElement).appendChild(s);
     // -------- References --------
     const bar   = document.getElementById('status');
     const uSel  = document.getElementById('user');
@@ -119,14 +156,14 @@
       toastTimer = setTimeout(()=> toast.classList.remove('show'), 1700);
     }
 
-    // -------- API core: נסיונות מדורגים כדי למנוע כשלים בספארי/אנדרואיד --------
+    // -------- API core: fetch תחילה, JSONP כגיבוי --------
     function jsonp(path, params = {}){
       if (!window.APP_CONFIG || !window.APP_CONFIG.API_URL) {
         return Promise.reject(new Error('config.js missing'));
       }
 
-      // בונים את כתובת היעד עם אותם פרמטרים שהיו לך
-      const buildUrl = (withCallback=false, cb='')=>{
+      // נרכיב URL עם אותם פרמטרים
+      const buildUrl = (forJsonp=false, cbName='')=>{
         const u = new URL(String(window.APP_CONFIG.API_URL), location.href);
         const q = {
           ...params,
@@ -134,39 +171,34 @@
           path,
           _: Date.now()
         };
-        if (withCallback) q.callback = cb;
+        if (forJsonp) q.callback = cbName;
         Object.entries(q).forEach(([k,v])=> u.searchParams.set(k, v));
         return u;
       };
 
-      // 1) נסיון דרך פרוקסי CORS יציב (HTTPS)
-      const tryCorsProxy = () => {
-        const target = buildUrl(false).toString();
-        const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(target);
-        return fetch(proxy, { method:'GET', cache:'no-store' })
-          .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
-          .then(txt => {
-            try { return JSON.parse(txt); }
-            catch { throw new Error('Bad JSON from proxy'); }
-          });
-      };
+      // 1) ניסיון ראשון: fetch JSON רגיל (GAS ב-HTTPS תומך בזה)
+      const tryFetch = () =>
+        fetch(buildUrl(false).toString(), {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          cache: 'no-store'
+        }).then(r=>{
+          if (!r.ok) throw new Error('HTTP '+r.status);
+          return r.json();
+        });
 
-      // 2) fetch ישיר (אם במקרה יש CORS פתוח)
-      const tryDirectFetch = () =>
-        fetch(buildUrl(false).toString(), { method:'GET', mode:'cors', credentials:'omit', cache:'no-store' })
-          .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
-
-      // 3) JSONP ישיר כגיבוי אחרון
+      // 2) גיבוי: JSONP ישיר (ללא פרוקסי)
       const tryJsonp = () => new Promise((resolve, reject)=>{
-        const cb = 'cb_' + Math.random().toString(36).slice(2);
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
         const s = document.createElement('script');
-        s.src = buildUrl(true, cb).toString();
+        s.src = buildUrl(true, cbName).toString();
         s.async = true;
         s.charset = 'utf-8';
 
         let done = false;
         const cleanup = ()=>{
-          if (window[cb]) delete window[cb];
+          if (window[cbName]) delete window[cbName];
           if (s.parentNode) s.parentNode.removeChild(s);
         };
         const timer = setTimeout(()=>{
@@ -175,7 +207,7 @@
           reject(new Error('JSONP load error'));
         }, 12000);
 
-        window[cb] = (data)=>{
+        window[cbName] = (data)=>{
           if (done) return;
           done = true; clearTimeout(timer); cleanup();
           resolve(data);
@@ -188,10 +220,8 @@
         (document.head || document.documentElement).appendChild(s);
       });
 
-      // רצף ניסיונות: Proxy → Fetch → JSONP
-      return tryCorsProxy()
-        .catch(() => tryDirectFetch())
-        .catch(() => tryJsonp());
+      // אסטרטגיה: fetch → JSONP
+      return tryFetch().catch(()=> tryJsonp());
     }
 
     async function apiGet(path, params={}){
@@ -303,13 +333,21 @@
           source: 'user'
         });
 
+    async function apiGet(path,p={}){const r=await jsonp(path,p);if(!r.ok){setBar('API error: '+(r.error||'לא ידוע'),false);throw new Error(r.error||'API');}return r;}
+    async function apiCreateEvent(p){const r=await jsonp('create_event',{user:p.user,group:p.group,status_code:p.status_code,starts_at:p.starts_at,ends_at:'',source:p.source||'user'});if(!r.ok){setBar('API error: '+(r.error||'לא ידוע'),false);throw new Error(r.error||'API');}return r;}
         setBar('עודכן בהצלחה ✔', true);
         showToast('נשמר בהצלחה');
 
+    function luminance(h){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h||'');if(!m)return 1;const r=parseInt(m[1],16)/255,g=parseInt(m[2],16)/255,b=parseInt(m[3],16)/255;const a=[r,g,b].map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];}
+    function textColorFor(bg){return luminance(bg)>0.5?'#000':'#fff';}
+    function renderStatusButtons(st){statusBtnsWrap.innerHTML='';st.forEach(s=>{const b=document.createElement('div');b.className='status-btn';b.textContent=s.label;const bg=s.color_hex||'#e0e0e0';b.style.background=bg;b.style.color=textColorFor(bg);b.style.borderColor=bg;b.onclick=()=>{selectedStatusCode=s.code;[...statusBtnsWrap.children].forEach(e=>e.classList.remove('selected'));b.classList.add('selected');setSaveEnabled(!!uSel.value&&!!selectedStatusCode);};statusBtnsWrap.appendChild(b);});selectedStatusCode=null;setSaveEnabled(false);}
         saveB.classList.remove('loading');
         saveB.classList.add('success');
         saveB.textContent = 'נשמר ✓';
 
+    async function loadAllUsers(){setBar('טוען שמות…');const r=await apiGet('users');ALL_USERS=r.data||[];uSel.innerHTML='';ALL_USERS.forEach(u=>{const o=document.createElement('option');o.value=u.display_name;o.textContent=u.display_name;uSel.appendChild(o);});setBar('שמות נטענו',true);loadProfile();}
+    async function loadStatuses(){setBar('טוען סטטוסים…');const r=await apiGet('statuses');renderStatusButtons(r.data||[]);setBar('סטטוסים נטענו',true);}
+    function findUserByName(n){const e=ALL_USERS.find(u=>u.display_name===n);if(e)return e;const l=(n||'').toLowerCase();return ALL_USERS.find(u=>String(u.display_name).toLowerCase()===l)||null;}
         setTimeout(()=>{
           saveB.classList.remove('success');
           saveB.textContent = originalText;
@@ -317,6 +355,9 @@
           setSaveEnabled(!!uSel.value && !!selectedStatusCode);
         }, 1600);
 
+    nowBt.onclick=()=>{start.value=isoLocalMinutes(new Date());};
+    uSel.onchange=()=>setSaveEnabled(!!uSel.value&&!!selectedStatusCode);
+    saveB.onclick=async()=>{const u=findUserByName(uSel.value);if(!u){setBar('בחר/י שם מהרשימה',false);return;}if(!selectedStatusCode){setBar('בחר סטטוס לפני שמירה',false);return;}saveProfile();setBar('שומר…');saveB.classList.add('loading');saveB.disabled=true;const t=saveB.textContent;saveB.textContent='שומר…';try{await apiCreateEvent({user:u.display_name,group:u.group||'',status_code:selectedStatusCode,starts_at:start.value?new Date(start.value).toISOString():new Date().toISOString(),source:'user'});setBar('עודכן בהצלחה ✔',true);showToast('נשמר בהצלחה');saveB.classList.remove('loading');saveB.classList.add('success');saveB.textContent='נשמר ✓';setTimeout(()=>{saveB.classList.remove('success');saveB.textContent=t;saveB.disabled=false;setSaveEnabled(!!uSel.value&&!!selectedStatusCode);},1600);}catch(e){setBar('שגיאה בשמירה: '+e.message,false);saveB.classList.remove('loading','success');saveB.textContent=t;saveB.disabled=false;}};
       } catch(err){
         setBar('שגיאה בשמירה: ' + err.message, false);
         saveB.classList.remove('loading','success');
@@ -325,6 +366,7 @@
       }
     };
 
+    (async function init(){try{start.value=isoLocalMinutes(new Date());await loadAllUsers();await loadStatuses();}catch(e){setBar('שגיאה באתחול: '+e.message,false);console.error(e);}})();
     // -------- Init --------
     (async function init(){
       try{
