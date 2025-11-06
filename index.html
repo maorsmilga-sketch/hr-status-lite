@@ -228,24 +228,74 @@
     // -------- JSONP core (עוקף CORS) --------
     function jsonp(path, params = {}){
       return new Promise((resolve, reject)=>{
-        if (!window.APP_CONFIG) return reject(new Error('config.js missing'));
-        const cbName = 'cb_' + Math.random().toString(36).slice(2);
-        params.secret = window.APP_CONFIG.SECRET;
-        params.path = path;
-        params.callback = cbName;
+        if (!window.APP_CONFIG || !window.APP_CONFIG.API_URL)
+          return reject(new Error('config.js missing'));
 
-        const url = new URL(window.APP_CONFIG.API_URL);
+        // שם callback ייחודי
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+
+        // פרמטרים בסיסיים + cache-busting
+        params = {
+          ...params,
+          secret: window.APP_CONFIG.SECRET,
+          path,
+          callback: cbName,
+          _: Date.now()
+        };
+
+        // *** תיקון: מניעת mixed-content וקשיחות ל-Safari ***
+        let api = window.APP_CONFIG.API_URL;
+        if (location.protocol === 'https:' && typeof api === 'string' && api.startsWith('http:')) {
+          api = 'https:' + api.slice(5); // משדרגים ל-HTTPS
+        }
+
+        let url;
+        try {
+          url = new URL(api, location.href);
+        } catch (e) {
+          return reject(e);
+        }
         Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
 
         const s = document.createElement('script');
         s.src = url.toString();
-        s.onerror = ()=>{ delete window[cbName]; reject(new Error('JSONP load error')); };
-        window[cbName] = (data)=>{ delete window[cbName]; s.remove(); resolve(data); };
-        document.body.appendChild(s);
+        s.async = true;
+
+        let done = false;
+        const cleanup = ()=>{
+          if (window[cbName]) delete window[cbName];
+          if (s.parentNode) s.parentNode.removeChild(s);
+        };
+
+        // יש דפדפנים (Safari) שלא תמיד מפעילים onerror על JSONP – נוסיף timeout בטוח
+        const timer = setTimeout(()=>{
+          if (done) return;
+          done = true;
+          cleanup();
+          reject(new Error('JSONP timeout'));
+        }, 10000);
+
+        window[cbName] = (data)=>{
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          cleanup();
+          resolve(data);
+        };
+
+        s.onerror = ()=>{
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          cleanup();
+          reject(new Error('JSONP load error'));
+        };
+
+        (document.head || document.body).appendChild(s);
       });
     }
 
-    async function apiGet(path, params={}) {
+    async function apiGet(path, params={}){
       const res = await jsonp(path, params);
       if (!res.ok) { setBar('API error: ' + (res.error || 'לא ידוע'), false); throw new Error(res.error||'API'); }
       return res;
