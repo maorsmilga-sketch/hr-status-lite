@@ -119,14 +119,14 @@
       toastTimer = setTimeout(()=> toast.classList.remove('show'), 1700);
     }
 
-    // -------- API core: fetch תחילה, JSONP כגיבוי --------
+    // -------- API core: נסיונות מדורגים כדי למנוע כשלים בספארי/אנדרואיד --------
     function jsonp(path, params = {}){
       if (!window.APP_CONFIG || !window.APP_CONFIG.API_URL) {
         return Promise.reject(new Error('config.js missing'));
       }
 
-      // נרכיב URL עם אותם פרמטרים
-      const buildUrl = (forJsonp=false, cbName='')=>{
+      // בונים את כתובת היעד עם אותם פרמטרים שהיו לך
+      const buildUrl = (withCallback=false, cb='')=>{
         const u = new URL(String(window.APP_CONFIG.API_URL), location.href);
         const q = {
           ...params,
@@ -134,34 +134,39 @@
           path,
           _: Date.now()
         };
-        if (forJsonp) q.callback = cbName;
+        if (withCallback) q.callback = cb;
         Object.entries(q).forEach(([k,v])=> u.searchParams.set(k, v));
         return u;
       };
 
-      // 1) ניסיון ראשון: fetch JSON רגיל (GAS ב-HTTPS תומך בזה)
-      const tryFetch = () =>
-        fetch(buildUrl(false).toString(), {
-          method: 'GET',
-          mode: 'cors',
-          credentials: 'omit',
-          cache: 'no-store'
-        }).then(r=>{
-          if (!r.ok) throw new Error('HTTP '+r.status);
-          return r.json();
-        });
+      // 1) נסיון דרך פרוקסי CORS יציב (HTTPS)
+      const tryCorsProxy = () => {
+        const target = buildUrl(false).toString();
+        const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(target);
+        return fetch(proxy, { method:'GET', cache:'no-store' })
+          .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+          .then(txt => {
+            try { return JSON.parse(txt); }
+            catch { throw new Error('Bad JSON from proxy'); }
+          });
+      };
 
-      // 2) גיבוי: JSONP ישיר (ללא פרוקסי)
+      // 2) fetch ישיר (אם במקרה יש CORS פתוח)
+      const tryDirectFetch = () =>
+        fetch(buildUrl(false).toString(), { method:'GET', mode:'cors', credentials:'omit', cache:'no-store' })
+          .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+
+      // 3) JSONP ישיר כגיבוי אחרון
       const tryJsonp = () => new Promise((resolve, reject)=>{
-        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+        const cb = 'cb_' + Math.random().toString(36).slice(2);
         const s = document.createElement('script');
-        s.src = buildUrl(true, cbName).toString();
+        s.src = buildUrl(true, cb).toString();
         s.async = true;
         s.charset = 'utf-8';
 
         let done = false;
         const cleanup = ()=>{
-          if (window[cbName]) delete window[cbName];
+          if (window[cb]) delete window[cb];
           if (s.parentNode) s.parentNode.removeChild(s);
         };
         const timer = setTimeout(()=>{
@@ -170,7 +175,7 @@
           reject(new Error('JSONP load error'));
         }, 12000);
 
-        window[cbName] = (data)=>{
+        window[cb] = (data)=>{
           if (done) return;
           done = true; clearTimeout(timer); cleanup();
           resolve(data);
@@ -183,8 +188,10 @@
         (document.head || document.documentElement).appendChild(s);
       });
 
-      // אסטרטגיה: fetch → JSONP
-      return tryFetch().catch(()=> tryJsonp());
+      // רצף ניסיונות: Proxy → Fetch → JSONP
+      return tryCorsProxy()
+        .catch(() => tryDirectFetch())
+        .catch(() => tryJsonp());
     }
 
     async function apiGet(path, params={}){
