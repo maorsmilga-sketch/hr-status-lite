@@ -66,13 +66,13 @@
     /* הסתרה חד-משמעית ל-[hidden] */
     [hidden]{ display:none !important; }
 
-    /* ✅ עמודת תאריך ממורכזת ולא זולגת */
+    /* עמודת תאריך ממורכזת ונקייה מזליגה */
     td:last-child {
       direction: ltr;
       text-align: center;
     }
 
-    /* ✅ שורות שתוקפן עבר */
+    /* שורות שתוקפן (התאריך העדכני ביותר) מוקדם מהיום */
     tr.expired {
       background-color: #ffe5e5 !important;
     }
@@ -159,14 +159,22 @@
     // הכפתור צריך להציע את הפעולה ההפוכה
     toggleOnlyBtn.textContent = 'הצג את כולם';
 
-    function toLocal(dtStr){
+    function toLocalDate(dtStr){
       if (!dtStr) return '—';
       const d = new Date(dtStr);
       if (isNaN(d)) return '—';
-      return d.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
+      // מציגים תאריך בלבד
+      return d.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
     }
     function hexToRgb(hex){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||''); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; }
     function pillStyleFromHex(hex,alpha=0.15){ const rgb=hexToRgb(hex); if(!rgb) return {bg:'#eee',color:'#000',border:'#ddd'}; return {bg:`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`,color:hex,border:hex}; }
+
+    // עזר: תחילת יום (ללא שעות) לפי אזור הזמן של המשתמש
+    function startOfDayLocal(d){
+      const x = new Date(d);
+      x.setHours(0,0,0,0);
+      return x;
+    }
 
     // === מחווה לטעינה ===
     const loadingOverlay = document.getElementById('loadingOverlay');
@@ -234,7 +242,9 @@
         });
 
         tbody.innerHTML = '';
-        const today = new Date();
+
+        // תאריך היום ללא שעות (לפי זמן המכשיר)
+        const todayStart = startOfDayLocal(new Date());
 
         rowsToShow.forEach(r=>{
           const tr = document.createElement('tr');
@@ -249,13 +259,20 @@
           pill.style.background=st.bg; pill.style.color=st.color; pill.style.border=`1px solid ${st.border}`;
           tdStat.appendChild(pill);
 
-          const tdWhen = document.createElement('td');
-          const dt = lastUpdateByUser[r.user] ? lastUpdateByUser[r.user].toISOString() : '';
-          tdWhen.textContent = toLocal(dt);
+          // התאריך העדכני ביותר למשתמש
+          const dtISO = lastUpdateByUser[r.user] ? lastUpdateByUser[r.user].toISOString() : '';
+          const dtObj = dtISO ? new Date(dtISO) : null;
 
-          // ✅ אם התאריך קטן מהיום – צבע אדום
-          if (dt && new Date(dt) < today) {
-            tr.classList.add('expired');
+          // מציגים תאריך בלבד
+          const tdWhen = document.createElement('td');
+          tdWhen.textContent = dtObj ? toLocalDate(dtISO) : '—';
+
+          // השוואת תאריכים "ביום" בלבד (בלי שעות/דקות/שניות)
+          if (dtObj) {
+            const rowDay = startOfDayLocal(dtObj);
+            if (rowDay < todayStart) {
+              tr.classList.add('expired'); // צובע באדום
+            }
           }
 
           tr.append(tdUser, tdGroup, tdStat, tdWhen);
