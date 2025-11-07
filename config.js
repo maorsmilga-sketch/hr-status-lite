@@ -1,6 +1,7 @@
 window.APP_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbw6tWwoj0KQAo25UObUc9-tNjCDlWAuVMn6NwwX4wqJwgx78xwvxrlN1FJAhERrIt07/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbwKlOLVoZkGKexPKAC-H76XCdd4R0Oehi9C6X2Dv7Sfjf2Q8LZbAaJhFnAEPEyc-_1XKw/exec',
   SECRET: 'maor-777'
 };
+
 
 
