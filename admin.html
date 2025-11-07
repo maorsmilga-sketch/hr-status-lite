@@ -65,6 +65,17 @@
     }
     /* הסתרה חד-משמעית ל-[hidden] */
     [hidden]{ display:none !important; }
+
+    /* ✅ עמודת תאריך ממורכזת ולא זולגת */
+    td:last-child {
+      direction: ltr;
+      text-align: center;
+    }
+
+    /* ✅ שורות שתוקפן עבר */
+    tr.expired {
+      background-color: #ffe5e5 !important;
+    }
   </style>
 </head>
 <body>
@@ -92,7 +103,7 @@
     <h3 style="margin-top:0">תמונת מצב</h3>
     <div id="summary" class="chips"></div>
     <table>
-      <thead><tr><th>שם</th><th>מחלקה</th><th>סטטוס</th><th>עודכן</th></tr></thead>
+      <thead><tr><th>שם</th><th>מחלקה</th><th>סטטוס</th><th>נכנס לתוקף</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
   </div>
@@ -223,6 +234,8 @@
         });
 
         tbody.innerHTML = '';
+        const today = new Date();
+
         rowsToShow.forEach(r=>{
           const tr = document.createElement('tr');
 
@@ -239,6 +252,11 @@
           const tdWhen = document.createElement('td');
           const dt = lastUpdateByUser[r.user] ? lastUpdateByUser[r.user].toISOString() : '';
           tdWhen.textContent = toLocal(dt);
+
+          // ✅ אם התאריך קטן מהיום – צבע אדום
+          if (dt && new Date(dt) < today) {
+            tr.classList.add('expired');
+          }
 
           tr.append(tdUser, tdGroup, tdStat, tdWhen);
           tbody.appendChild(tr);
@@ -283,4 +301,3 @@
   </script>
 </body>
 </html>
-
