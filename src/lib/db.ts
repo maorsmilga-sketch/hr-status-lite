@@ -98,6 +98,19 @@ export async function updateSoldierRole(soldierId: string, role: SoldierRoleId):
   await updateDoc(doc(db, 'soldiers', soldierId), { role })
 }
 
+export async function updateSoldier(
+  soldierId: string,
+  fields: { name: string; role: SoldierRoleId },
+): Promise<void> {
+  const name = fields.name.trim()
+  if (!name) throw new Error('יש להזין שם')
+  const dup = await getDocs(query(collection(db, 'soldiers'), where('name', '==', name)))
+  if (dup.docs.some((d) => d.id !== soldierId)) {
+    throw new Error('השם כבר קיים')
+  }
+  await updateDoc(doc(db, 'soldiers', soldierId), { name, role: fields.role })
+}
+
 export async function deleteSoldier(soldierId: string): Promise<void> {
   const attendance = await getDocs(
     query(collection(db, 'attendance_records'), where('soldier_id', '==', soldierId)),
@@ -211,6 +224,7 @@ function mapAssignments(data: Record<string, unknown> | undefined): ShiftAssignm
   for (const key of Object.keys(base) as (keyof ShiftAssignments)[]) {
     base[key] = String(data[key] ?? '')
   }
+  if (!base.karpach_a && data.karpach) base.karpach_a = String(data.karpach)
   return base
 }
 

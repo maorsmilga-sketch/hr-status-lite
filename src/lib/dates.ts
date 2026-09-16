@@ -75,6 +75,10 @@ export function weekdayName(iso: string): string {
   return parseISODateLocal(iso).toLocaleDateString('he-IL', { weekday: 'long' })
 }
 
+export function weekdayShort(iso: string): string {
+  return parseISODateLocal(iso).toLocaleDateString('he-IL', { weekday: 'short' })
+}
+
 export function shortDayLabel(iso: string): string {
   return parseISODateLocal(iso).toLocaleDateString('he-IL', {
     day: 'numeric',

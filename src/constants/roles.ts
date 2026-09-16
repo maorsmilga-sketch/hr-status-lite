@@ -1,6 +1,7 @@
 export const SOLDIER_ROLES = [
   { id: 'sambaz', label: 'סמב"צ' },
   { id: 'karpach', label: 'קרפ"ח' },
+  { id: 'kar', label: 'קא"ר' },
   { id: 'instructor', label: 'מדריך' },
   { id: 'other', label: 'אחר' },
 ] as const

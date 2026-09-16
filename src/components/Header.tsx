@@ -12,13 +12,12 @@ export function Header() {
   const copy = PAGE_COPY[pathname] ?? PAGE_COPY['/']
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0b1f33] text-white shadow-lg">
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-l from-transparent via-[#c9a44a] to-transparent" />
-      <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3.5 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Logo size="md" />
+    <header className="shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+      <div className="flex items-center gap-2.5 px-3 py-2 pt-[max(0.4rem,env(safe-area-inset-top))]">
+        <Logo size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-extrabold tracking-tight">{copy.title}</p>
-          <p className="truncate text-xs font-medium text-[#e8d5a3]/90">{copy.subtitle}</p>
+          <p className="truncate text-sm font-extrabold tracking-tight text-slate-900">{copy.title}</p>
+          <p className="truncate text-[11px] font-medium text-[#2563eb]">{copy.subtitle}</p>
         </div>
       </div>
     </header>

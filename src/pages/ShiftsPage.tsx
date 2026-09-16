@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
-import { roleLabel } from '../constants/roles'
-import {
-  emptyAssignments,
-  SHIFT_ROLES,
-  soldiersForShiftSlot,
-  type ShiftAssignments,
-  type ShiftRoleId,
-} from '../constants/shifts'
+import { ShiftAssignSelect } from '../components/ShiftAssignSelect'
+import { emptyAssignments, SHIFT_ROLES, type ShiftAssignments, type ShiftRoleId } from '../constants/shifts'
 import { isAdminSession, setAdminSession } from '../lib/auth'
 import {
   addWeeks,
@@ -17,7 +11,7 @@ import {
   shortDayLabel,
   todayISO,
   visibleWeekDays,
-  weekdayName,
+  weekdayShort,
 } from '../lib/dates'
 import {
   fetchShiftsForDates,
@@ -32,6 +26,7 @@ export function ShiftsPage() {
   const [dutyStart, setDutyStart] = useState('2026-09-17')
   const [dutyEnd, setDutyEnd] = useState('2026-12-15')
   const [weekStart, setWeekStart] = useState(() => initialWeekStart('2026-09-17', '2026-12-15'))
+  const [selectedDate, setSelectedDate] = useState(todayISO())
   const [days, setDays] = useState<Record<string, ShiftAssignments>>({})
   const [soldiers, setSoldiers] = useState<Soldier[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,6 +43,8 @@ export function ShiftsPage() {
   const today = todayISO()
   const canPrev = canMoveWeek(weekStart, -1, dutyStart, dutyEnd)
   const canNext = canMoveWeek(weekStart, 1, dutyStart, dutyEnd)
+  const activeDate = dates.includes(selectedDate) ? selectedDate : (dates[0] ?? today)
+  const assignments = days[activeDate] ?? emptyAssignments()
 
   const loadMeta = useCallback(async () => {
     const settings = await getAppSettings()
@@ -92,10 +89,10 @@ export function ShiftsPage() {
     setWeekStart((w) => addWeeks(w, delta))
   }
 
-  function setRole(date: string, roleId: ShiftRoleId, value: string) {
+  function setRole(roleId: ShiftRoleId, value: string) {
     setDays((prev) => ({
       ...prev,
-      [date]: { ...(prev[date] ?? emptyAssignments()), [roleId]: value },
+      [activeDate]: { ...(prev[activeDate] ?? emptyAssignments()), [roleId]: value },
     }))
   }
 
@@ -104,7 +101,7 @@ export function ShiftsPage() {
     setMessage(null)
     try {
       await saveShiftWeek(dates.map((date) => ({ date, assignments: days[date] ?? emptyAssignments() })))
-      setMessage('המשמרות נשמרו')
+      setMessage('נשמר')
       setEditing(false)
     } catch {
       setMessage('שמירה נכשלה')
@@ -116,7 +113,6 @@ export function ShiftsPage() {
   function onTouchStart(e: React.TouchEvent) {
     touchX.current = e.changedTouches[0]?.clientX ?? null
   }
-
   function onTouchEnd(e: React.TouchEvent) {
     if (touchX.current == null) return
     const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX.current
@@ -125,140 +121,125 @@ export function ShiftsPage() {
     moveWeek(dx > 0 ? -1 : 1)
   }
 
-  const morningRoles = SHIFT_ROLES.filter((r) => r.period === 'morning')
-  const nightRoles = SHIFT_ROLES.filter((r) => r.period === 'night')
-
   return (
-    <main className="px-4 pt-4" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <section className="rounded-3xl bg-white p-4 shadow-lg shadow-slate-900/5 ring-1 ring-slate-100">
-        <div className="flex items-center justify-between gap-2">
+    <main className="flex min-h-0 flex-1 flex-col px-3 py-2" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <section className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label="שבוע קודם"
             disabled={!canPrev}
             onClick={() => moveWeek(-1)}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0b1f33] text-lg text-white shadow-md disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-lg disabled:opacity-30"
           >
             ‹
           </button>
-          <div className="min-w-0 text-center">
-            <p className="text-[11px] font-bold tracking-wide text-[#c9a44a]">שבוע בטווח התעסוקה</p>
-            <p className="truncate text-sm font-extrabold text-[#0b1f33]">
-              {formatWeekRange(weekStart)}
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-500">
-              {dutyStart.split('-').reverse().join('.')} – {dutyEnd.split('-').reverse().join('.')}
-            </p>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-[11px] font-extrabold text-slate-800">{formatWeekRange(weekStart)}</p>
           </div>
           <button
             type="button"
-            aria-label="שבוע הבא"
             disabled={!canNext}
             onClick={() => moveWeek(1)}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0b1f33] text-lg text-white shadow-md disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-lg disabled:opacity-30"
           >
             ›
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (editing) {
+                setEditing(false)
+                void load()
+                return
+              }
+              if (isAdminSession()) {
+                setEditing(true)
+                return
+              }
+              setPwOpen(true)
+            }}
+            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold ${
+              editing ? 'bg-slate-100 text-slate-600' : 'bg-[#2563eb] text-white'
+            }`}
+          >
+            {editing ? 'יציאה' : 'עריכה'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (editing) {
-              setEditing(false)
-              void load()
-              return
-            }
-            if (isAdminSession()) {
-              setEditing(true)
-              return
-            }
-            setPwOpen(true)
-          }}
-          className={`mt-3 w-full rounded-2xl py-3 text-sm font-extrabold shadow-md ${
-            editing ? 'bg-slate-100 text-slate-700' : 'bg-[#0b1f33] text-white'
-          }`}
-        >
-          {editing ? 'יציאה מעריכה' : 'עריכת משמרות'}
-        </button>
-      </section>
-
-      {loading ? (
-        <p className="py-10 text-center text-sm text-slate-500">טוען לוח משמרות…</p>
-      ) : dates.length === 0 ? (
-        <p className="mt-4 rounded-3xl bg-white p-5 text-center text-sm text-slate-500 shadow-md">
-          אין ימים בטווח התעסוקה המבצעית. עדכנו תאריכים במסך המנהל.
-        </p>
-      ) : (
-        <div className="mt-3 space-y-3">
+        <div className="mt-2 grid grid-cols-7 gap-1">
           {dates.map((date) => {
-            const assignments = days[date] ?? emptyAssignments()
             const isToday = date === today
+            const isActive = date === activeDate
             return (
-              <article
+              <button
                 key={date}
-                className={`overflow-hidden rounded-3xl bg-white shadow-lg shadow-slate-900/5 ring-1 ${
-                  isToday ? 'ring-[#c9a44a]' : 'ring-slate-100'
+                type="button"
+                onClick={() => setSelectedDate(date)}
+                className={`rounded-xl px-0.5 py-1.5 text-center ${
+                  isActive
+                    ? 'bg-[#2563eb] text-white shadow-md'
+                    : isToday
+                      ? 'bg-blue-50 text-[#2563eb] ring-1 ring-[#2563eb]'
+                      : 'bg-slate-50 text-slate-600'
                 }`}
               >
-                <div className="flex items-center justify-between bg-[#0b1f33] px-4 py-3 text-white">
-                  <div>
-                    <p className="text-sm font-extrabold">{weekdayName(date)}</p>
-                    <p className="text-xs text-white/70">{shortDayLabel(date)}</p>
-                  </div>
-                  {isToday && (
-                    <span className="rounded-full bg-[#c9a44a] px-2.5 py-1 text-[11px] font-extrabold text-[#0b1f33]">
-                      היום
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-3 p-3">
-                  <ShiftGroup
-                    title="משמרת בוקר"
-                    accent="from-amber-50 to-white"
-                    roles={morningRoles}
-                    assignments={assignments}
-                    soldiers={soldiers}
-                    editing={editing}
-                    date={date}
-                    onChange={setRole}
-                  />
-                  <ShiftGroup
-                    title="משמרת לילה"
-                    accent="from-indigo-50 to-white"
-                    roles={nightRoles}
-                    assignments={assignments}
-                    soldiers={soldiers}
-                    editing={editing}
-                    date={date}
-                    onChange={setRole}
-                  />
-                </div>
-              </article>
+                <p className="text-[9px] font-bold">{weekdayShort(date)}</p>
+                <p className="text-[11px] font-extrabold">{shortDayLabel(date).split('.')[0]}</p>
+              </button>
             )
           })}
         </div>
+      </section>
+
+      {loading ? (
+        <p className="py-8 text-center text-sm text-slate-400">טוען…</p>
+      ) : dates.length === 0 ? (
+        <p className="mt-3 text-center text-sm text-slate-400">אין ימים בטווח התעסוקה.</p>
+      ) : (
+        <section className="mt-2 min-h-0 flex-1 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100">
+          <div className="flex h-full flex-col gap-1">
+            {SHIFT_ROLES.map((role) => (
+              <div key={role.id} className="flex min-h-0 items-center gap-2 rounded-xl bg-slate-50 px-2">
+                <span className="w-[5.6rem] shrink-0 text-[11px] font-extrabold text-slate-700">
+                  {role.label}
+                </span>
+                {editing ? (
+                  <ShiftAssignSelect
+                    soldiers={soldiers}
+                    shiftRoleId={role.id}
+                    value={assignments[role.id]}
+                    onChange={(name) => setRole(role.id, name)}
+                  />
+                ) : (
+                  <span
+                    className={`min-w-0 flex-1 truncate text-xs font-semibold ${
+                      assignments[role.id] ? 'text-slate-800' : 'text-slate-300'
+                    }`}
+                  >
+                    {assignments[role.id] || 'לא שובץ'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
-      {editing && dates.length > 0 && (
+      {editing && (
         <button
           type="button"
           onClick={() => void saveAll()}
           disabled={saving}
-          className="mt-4 w-full rounded-3xl bg-[#c9a44a] py-4 text-lg font-extrabold text-[#0b1f33] shadow-xl disabled:opacity-60"
+          className="mt-2 w-full shrink-0 rounded-2xl bg-[#2563eb] py-2.5 text-sm font-extrabold text-white disabled:opacity-60"
         >
           {saving ? 'שומר…' : 'שמירת שבוע'}
         </button>
       )}
-
-      {message && (
-        <p className="mt-3 text-center text-sm font-bold text-[#0b1f33]">{message}</p>
-      )}
+      {message && <p className="mt-1 text-center text-[11px] font-bold text-[#2563eb]">{message}</p>}
 
       <PasswordModal
         open={pwOpen}
         title="עריכת משמרות"
-        hint="נדרשת סיסמת מנהל כדי לערוך את הלוח"
+        hint="נדרשת סיסמת מנהל"
         submitLabel="כניסה לעריכה"
         onClose={() => setPwOpen(false)}
         onSubmit={async (password) => {
@@ -270,72 +251,5 @@ export function ShiftsPage() {
         }}
       />
     </main>
-  )
-}
-
-function ShiftGroup({
-  title,
-  accent,
-  roles,
-  assignments,
-  soldiers,
-  editing,
-  date,
-  onChange,
-}: {
-  title: string
-  accent: string
-  roles: Array<(typeof SHIFT_ROLES)[number]>
-  assignments: ShiftAssignments
-  soldiers: Soldier[]
-  editing: boolean
-  date: string
-  onChange: (date: string, roleId: ShiftRoleId, value: string) => void
-}) {
-  return (
-    <div className={`rounded-2xl bg-gradient-to-b ${accent} p-3 ring-1 ring-slate-100`}>
-      <p className="mb-2 text-[11px] font-extrabold tracking-wide text-slate-500">{title}</p>
-      <div className="space-y-2">
-        {roles.map((role) => {
-          const value = assignments[role.id]
-          const options = soldiersForShiftSlot(soldiers, role.id)
-          return (
-            <div
-              key={role.id}
-              className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2 shadow-sm"
-            >
-              <span className="w-[7.2rem] shrink-0 text-xs font-bold text-[#0b1f33]">
-                {role.label}
-              </span>
-              {editing ? (
-                <select
-                  value={value}
-                  onChange={(e) => onChange(date, role.id, e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm"
-                >
-                  <option value="">— לא שובץ —</option>
-                  {options.map((s) => (
-                    <option key={s.id} value={s.name}>
-                      {s.name} ({roleLabel(s.role)})
-                    </option>
-                  ))}
-                  {value && !options.some((s) => s.name === value) && (
-                    <option value={value}>{value}</option>
-                  )}
-                </select>
-              ) : (
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm font-semibold ${
-                    value ? 'text-slate-800' : 'text-slate-400'
-                  }`}
-                >
-                  {value || 'לא שובץ'}
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
   )
 }

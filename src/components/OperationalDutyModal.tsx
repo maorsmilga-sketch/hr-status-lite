@@ -60,8 +60,8 @@ export function OperationalDutyModal({
         aria-labelledby="op-duty-title"
         className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl"
       >
-        <p className="text-[11px] font-bold tracking-wide text-[#c9a44a]">זמינות מבצעית</p>
-        <h2 id="op-duty-title" className="mt-1 text-xl font-extrabold text-[#0b1f33]">
+        <p className="text-[11px] font-bold tracking-wide text-[#2563eb]">זמינות מבצעית</p>
+        <h2 id="op-duty-title" className="mt-1 text-xl font-extrabold text-slate-900">
           תעסוקה מבצעית
         </h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -98,7 +98,7 @@ export function OperationalDutyModal({
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-2xl bg-[#0b1f33] py-3.5 font-bold text-white shadow-md disabled:opacity-60"
+              className="flex-1 rounded-2xl bg-[#2563eb] py-3.5 font-bold text-white shadow-md disabled:opacity-60"
             >
               {saving ? 'שומר…' : 'שמירה'}
             </button>

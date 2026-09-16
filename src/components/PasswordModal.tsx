@@ -72,7 +72,7 @@ export function PasswordModal({
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 rounded-2xl bg-[#0b1f33] py-3 font-bold text-white shadow-md disabled:opacity-60"
+              className="flex-1 rounded-2xl bg-[#2563eb] py-3 font-bold text-white shadow-md disabled:opacity-60"
             >
               {busy ? 'בודק…' : submitLabel}
             </button>
