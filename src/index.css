@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Heebo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-navy: #0b1f33;
+  --color-navy-mid: #13324d;
+  --color-navy-soft: #1c4566;
+  --color-gold: #c9a44a;
+  --color-gold-soft: #e8d5a3;
+  --color-sand: #f4efe6;
+  --color-ink: #13202e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1200px 480px at 100% -10%, rgba(201, 164, 74, 0.12), transparent 55%),
+    radial-gradient(900px 420px at -10% 0%, rgba(28, 69, 102, 0.16), transparent 50%),
+    #eef2f6;
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-x: none;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input[type='date'] {
+  min-width: 0;
+  max-width: 100%;
+}
