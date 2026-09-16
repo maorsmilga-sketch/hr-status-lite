@@ -9,21 +9,17 @@ export function buildDaySummaryText(
   records: AttendanceRecord[],
 ): string {
   const bySoldier = new Map(records.map((r) => [r.soldier_id, r]))
-  const lines: string[] = [
-    `סיכום נוכחות — ${formatDisplayDate(dateIso)}`,
-    '─────────────────',
-  ]
+  const lines: string[] = [`סיכום נוכחות — ${formatDisplayDate(dateIso)}`, '']
 
   for (const s of soldiers) {
     const rec = bySoldier.get(s.id)
-    const statusLine = rec
-      ? rec.status + (rec.notes ? ` (${rec.notes})` : '')
-      : 'לא דווח'
-    const op =
-      s.operational_duty_start && s.operational_duty_end
-        ? ` | תעסוקה: ${s.operational_duty_start} → ${s.operational_duty_end}`
-        : ' | תעסוקה: לא הוגדר'
-    lines.push(`${s.name}: ${statusLine}${op}`)
+    if (!rec) continue
+    const extra = rec.notes ? ` (${rec.notes})` : ''
+    lines.push(`${s.name}: ${rec.status}${extra}`)
+  }
+
+  if (lines.length === 2) {
+    lines.push('אין דיווחים ליום זה')
   }
 
   return lines.join('\n')

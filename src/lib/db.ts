@@ -225,6 +225,8 @@ function mapAssignments(data: Record<string, unknown> | undefined): ShiftAssignm
     base[key] = String(data[key] ?? '')
   }
   if (!base.karpach_a && data.karpach) base.karpach_a = String(data.karpach)
+  if (!base.kar_day && data.kar) base.kar_day = String(data.kar)
+  if (!base.training_day && data.training) base.training_day = String(data.training)
   return base
 }
 

@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
-import { ShiftAssignSelect } from '../components/ShiftAssignSelect'
-import { emptyAssignments, SHIFT_ROLES, type ShiftAssignments, type ShiftRoleId } from '../constants/shifts'
+import { ShiftPickerSheet } from '../components/ShiftPickerSheet'
+import {
+  emptyAssignments,
+  rolesForPeriod,
+  type ShiftAssignments,
+  type ShiftPeriod,
+  type ShiftRoleId,
+} from '../constants/shifts'
 import { isAdminSession, setAdminSession } from '../lib/auth'
 import {
   addWeeks,
@@ -34,6 +40,7 @@ export function ShiftsPage() {
   const [pwOpen, setPwOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [picking, setPicking] = useState<{ id: ShiftRoleId; label: string } | null>(null)
   const touchX = useRef<number | null>(null)
 
   const dates = useMemo(
@@ -114,33 +121,33 @@ export function ShiftsPage() {
     touchX.current = e.changedTouches[0]?.clientX ?? null
   }
   function onTouchEnd(e: React.TouchEvent) {
-    if (touchX.current == null) return
+    if (picking || touchX.current == null) return
     const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX.current
     touchX.current = null
-    if (Math.abs(dx) < 60) return
+    if (Math.abs(dx) < 70) return
     moveWeek(dx > 0 ? -1 : 1)
   }
 
   return (
     <main className="flex min-h-0 flex-1 flex-col px-3 py-2" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <section className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
+      <section className="shrink-0 rounded-2xl bg-white/80 p-2.5 shadow-sm ring-1 ring-white/70 backdrop-blur">
         <div className="flex items-center gap-2">
           <button
             type="button"
             disabled={!canPrev}
             onClick={() => moveWeek(-1)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-lg disabled:opacity-30"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg disabled:opacity-30"
           >
             ‹
           </button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-[11px] font-extrabold text-slate-800">{formatWeekRange(weekStart)}</p>
-          </div>
+          <p className="min-w-0 flex-1 truncate text-center text-[11px] font-extrabold text-slate-800">
+            {formatWeekRange(weekStart)}
+          </p>
           <button
             type="button"
             disabled={!canNext}
             onClick={() => moveWeek(1)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-lg disabled:opacity-30"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg disabled:opacity-30"
           >
             ›
           </button>
@@ -158,7 +165,7 @@ export function ShiftsPage() {
               }
               setPwOpen(true)
             }}
-            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold ${
+            className={`rounded-xl px-3 py-2 text-[11px] font-extrabold ${
               editing ? 'bg-slate-100 text-slate-600' : 'bg-[#2563eb] text-white'
             }`}
           >
@@ -179,7 +186,7 @@ export function ShiftsPage() {
                     ? 'bg-[#2563eb] text-white shadow-md'
                     : isToday
                       ? 'bg-blue-50 text-[#2563eb] ring-1 ring-[#2563eb]'
-                      : 'bg-slate-50 text-slate-600'
+                      : 'bg-white/70 text-slate-600'
                 }`}
               >
                 <p className="text-[9px] font-bold">{weekdayShort(date)}</p>
@@ -195,33 +202,24 @@ export function ShiftsPage() {
       ) : dates.length === 0 ? (
         <p className="mt-3 text-center text-sm text-slate-400">אין ימים בטווח התעסוקה.</p>
       ) : (
-        <section className="mt-2 min-h-0 flex-1 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100">
-          <div className="flex h-full flex-col gap-1">
-            {SHIFT_ROLES.map((role) => (
-              <div key={role.id} className="flex min-h-0 items-center gap-2 rounded-xl bg-slate-50 px-2">
-                <span className="w-[5.6rem] shrink-0 text-[11px] font-extrabold text-slate-700">
-                  {role.label}
-                </span>
-                {editing ? (
-                  <ShiftAssignSelect
-                    soldiers={soldiers}
-                    shiftRoleId={role.id}
-                    value={assignments[role.id]}
-                    onChange={(name) => setRole(role.id, name)}
-                  />
-                ) : (
-                  <span
-                    className={`min-w-0 flex-1 truncate text-xs font-semibold ${
-                      assignments[role.id] ? 'text-slate-800' : 'text-slate-300'
-                    }`}
-                  >
-                    {assignments[role.id] || 'לא שובץ'}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+        <div className="mt-2 grid min-h-0 flex-1 grid-rows-2 gap-2">
+          <GlassShiftCard
+            title="משמרת יום"
+            period="day"
+            tint="from-amber-100/70 to-white/40"
+            assignments={assignments}
+            editing={editing}
+            onPick={(id, label) => setPicking({ id, label })}
+          />
+          <GlassShiftCard
+            title="משמרת לילה"
+            period="night"
+            tint="from-indigo-100/80 to-white/40"
+            assignments={assignments}
+            editing={editing}
+            onPick={(id, label) => setPicking({ id, label })}
+          />
+        </div>
       )}
 
       {editing && (
@@ -229,12 +227,24 @@ export function ShiftsPage() {
           type="button"
           onClick={() => void saveAll()}
           disabled={saving}
-          className="mt-2 w-full shrink-0 rounded-2xl bg-[#2563eb] py-2.5 text-sm font-extrabold text-white disabled:opacity-60"
+          className="mt-2 w-full shrink-0 rounded-2xl bg-[#2563eb] py-3 text-sm font-extrabold text-white disabled:opacity-60"
         >
           {saving ? 'שומר…' : 'שמירת שבוע'}
         </button>
       )}
       {message && <p className="mt-1 text-center text-[11px] font-bold text-[#2563eb]">{message}</p>}
+
+      <ShiftPickerSheet
+        open={!!picking}
+        title={picking?.label ?? ''}
+        shiftRoleId={picking?.id ?? 'karpach_a'}
+        soldiers={soldiers}
+        value={picking ? assignments[picking.id] : ''}
+        onClose={() => setPicking(null)}
+        onSelect={(name) => {
+          if (picking) setRole(picking.id, name)
+        }}
+      />
 
       <PasswordModal
         open={pwOpen}
@@ -251,5 +261,53 @@ export function ShiftsPage() {
         }}
       />
     </main>
+  )
+}
+
+function GlassShiftCard({
+  title,
+  period,
+  tint,
+  assignments,
+  editing,
+  onPick,
+}: {
+  title: string
+  period: ShiftPeriod
+  tint: string
+  assignments: ShiftAssignments
+  editing: boolean
+  onPick: (id: ShiftRoleId, label: string) => void
+}) {
+  const roles = rolesForPeriod(period)
+  return (
+    <section
+      className={`min-h-0 overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br ${tint} p-3 shadow-lg ring-1 ring-white/50 backdrop-blur-xl`}
+    >
+      <p className="mb-2 text-[11px] font-extrabold tracking-wide text-slate-600">{title}</p>
+      <div className="flex h-[calc(100%-1.25rem)] flex-col justify-between gap-1">
+        {roles.map((role) => {
+          const name = assignments[role.id]
+          return (
+            <button
+              key={role.id}
+              type="button"
+              disabled={!editing}
+              onClick={() => onPick(role.id, role.label)}
+              className="flex min-h-0 flex-1 items-center justify-between gap-2 rounded-2xl bg-white/50 px-3 py-1 text-right shadow-sm ring-1 ring-white/70 disabled:cursor-default"
+            >
+              <span className="shrink-0 text-[11px] font-extrabold text-slate-600">{role.label}</span>
+              <span
+                className={`min-w-0 truncate text-xs font-bold ${
+                  name ? 'text-slate-900' : 'text-slate-300'
+                }`}
+              >
+                {name || (editing ? 'הקש לשיבוץ' : 'לא שובץ')}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
