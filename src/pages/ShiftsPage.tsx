@@ -14,7 +14,6 @@ import {
   formatWindowRange,
   initialWindowStart,
   moveWindow,
-  shortDayLabel,
   todayISO,
   visibleWindowDays,
   weekdayShort,
@@ -164,11 +163,7 @@ export function ShiftsPage() {
             {editing ? 'יציאה' : 'עריכה'}
           </button>
         </div>
-        <div
-          dir="ltr"
-          className="mt-2 grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${Math.max(dates.length, 1)}, minmax(0, 1fr))` }}
-        >
+        <div dir="ltr" className="mt-2 flex gap-1 overflow-x-auto">
           {dates.map((date) => {
             const isToday = date === today
             const isActive = date === activeDate
@@ -177,7 +172,7 @@ export function ShiftsPage() {
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`rounded-xl px-0.5 py-1.5 text-center ${
+                className={`w-11 shrink-0 rounded-xl px-0.5 py-1.5 text-center ${
                   isActive
                     ? 'bg-[#2563eb] text-white shadow-md'
                     : isToday
@@ -185,8 +180,10 @@ export function ShiftsPage() {
                       : 'bg-white/70 text-slate-600'
                 }`}
               >
-                <p className="text-[9px] font-bold">{isToday ? 'היום' : weekdayShort(date)}</p>
-                <p className="text-[11px] font-extrabold">{shortDayLabel(date).split('.')[0]}</p>
+                <p className="truncate text-[8px] font-bold leading-none">{isToday ? 'היום' : weekdayShort(date)}</p>
+                <p className="mt-1 text-[13px] font-extrabold leading-none tabular-nums">
+                  {Number(date.slice(-2))}
+                </p>
               </button>
             )
           })}
