@@ -17,7 +17,12 @@ import {
   updateSoldier,
   verifyAdminPassword,
 } from '../lib/db'
-import { buildDaySummaryText, openShareIntent } from '../lib/shareSummary'
+import {
+  buildAttendanceReminderText,
+  buildDaySummaryText,
+  openGroupShareIntent,
+  openShareIntent,
+} from '../lib/shareSummary'
 import type { AttendanceRecord, Soldier } from '../types/database'
 
 type AdminTab = 'summary' | 'soldiers'
@@ -199,17 +204,26 @@ export function AdminDashboard() {
                 ›
               </button>
             </div>
-            <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+              <span className="shrink-0">
                 דיווחו <b>{reported}/{soldiers.length}</b>
               </span>
-              <button
-                type="button"
-                onClick={() => openShareIntent(buildDaySummaryText(viewDate, soldiers, records), sharePhone)}
-                className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#2563eb]"
-              >
-                שיתוף סיכום
-              </button>
+              <div className="flex flex-wrap justify-end gap-1">
+                <button
+                  type="button"
+                  onClick={() => openGroupShareIntent(buildAttendanceReminderText(viewDate))}
+                  className="rounded-lg bg-white/15 px-3 py-1.5 text-[11px] font-extrabold text-white ring-1 ring-white/40"
+                >
+                  תזכורת לקבוצה
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openShareIntent(buildDaySummaryText(viewDate, soldiers, records), sharePhone)}
+                  className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#2563eb]"
+                >
+                  שיתוף סיכום
+                </button>
+              </div>
             </div>
           </section>
 

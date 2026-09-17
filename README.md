@@ -19,7 +19,7 @@ npm run dev
 
 - `/` — Status updates (name remembered in local storage).
 - `/shifts` — Weekly shift board (read-only; admin can unlock editing).
-- `/admin` — Daily summary, add soldiers, change admin password, share summary.
+- `/admin` — Daily summary, add soldiers, change admin password, share summary, send a WhatsApp attendance reminder (opens WhatsApp so you can pick the group).
 
 The default admin password is `112233` until changed in the admin panel (stored in Firestore `settings/app`).
 
@@ -29,6 +29,8 @@ After updating rules, republish them in the Firebase console so `shifts_schedule
 
 ## Vercel
 
+Production: [https://hr-status-lite.vercel.app](https://hr-status-lite.vercel.app)
+
 Set these environment variables in the Vercel project (same values as `.env`):
 
 - `VITE_FIREBASE_API_KEY`
@@ -37,6 +39,7 @@ Set these environment variables in the Vercel project (same values as `.env`):
 - `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_PUBLIC_APP_URL` (optional; defaults to `https://hr-status-lite.vercel.app`)
 
 ## Production note
 
