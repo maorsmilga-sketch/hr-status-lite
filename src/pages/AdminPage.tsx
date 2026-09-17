@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
 import { SOLDIER_ROLES, roleLabel, type SoldierRoleId } from '../constants/roles'
@@ -86,6 +86,7 @@ export function AdminDashboard() {
   const [sharePhone, setSharePhone] = useState('')
   const [phoneMsg, setPhoneMsg] = useState<string | null>(null)
   const [filterId, setFilterId] = useState('')
+  const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -127,11 +128,34 @@ export function AdminDashboard() {
     setAdding(false)
   }
 
-  async function saveEdit(id: string) {
+  async function persistDuty(start: string, end: string) {
+    if (!start || !end) return
+    if (end < start) {
+      setDutyMsg('תאריך הסיום חייב להיות אחרי תאריך ההתחלה')
+      return
+    }
     try {
-      await updateSoldier(id, { name: editName, role: editRole })
-      setEditingId(null)
-      setFeedback('עודכן')
+      await updateDutyRange(start, end)
+      setDutyMsg('נשמר')
+    } catch (err) {
+      setDutyMsg(err instanceof Error ? err.message : 'שגיאה')
+    }
+  }
+
+  function queueSharePhone(value: string) {
+    setSharePhone(value)
+    if (phoneTimer.current) clearTimeout(phoneTimer.current)
+    phoneTimer.current = setTimeout(() => {
+      void updateSharePhone(value).then(() => setPhoneMsg('נשמר'))
+    }, 500)
+  }
+
+  async function saveEdit(id: string, name = editName, role = editRole) {
+    const soldier = soldiers.find((item) => item.id === id)
+    if (soldier && soldier.name === name.trim() && soldier.role === role) return
+    try {
+      await updateSoldier(id, { name, role })
+      setFeedback('נשמר')
       await load()
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : 'עדכון נכשל')
@@ -229,34 +253,28 @@ export function AdminDashboard() {
 
           <section className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
             <p className="text-[10px] font-bold text-[#2563eb]">עדכון תאריכי תעסוקה מבצעית</p>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault()
-                try {
-                  await updateDutyRange(dutyStart, dutyEnd)
-                  setDutyMsg('נשמר')
-                } catch (err) {
-                  setDutyMsg(err instanceof Error ? err.message : 'שגיאה')
-                }
-              }}
-              className="mt-1 flex items-end gap-1.5"
-            >
+            <div className="mt-1 flex items-end gap-1.5">
               <input
                 type="date"
                 value={dutyStart}
-                onChange={(e) => setDutyStart(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setDutyStart(value)
+                  void persistDuty(value, dutyEnd)
+                }}
                 className="min-w-0 flex-1 rounded-lg border border-slate-200 px-1 py-1 text-[11px]"
               />
               <input
                 type="date"
                 value={dutyEnd}
-                onChange={(e) => setDutyEnd(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setDutyEnd(value)
+                  void persistDuty(dutyStart, value)
+                }}
                 className="min-w-0 flex-1 rounded-lg border border-slate-200 px-1 py-1 text-[11px]"
               />
-              <button type="submit" className="rounded-lg bg-[#2563eb] px-2 py-1 text-[11px] font-bold text-white">
-                שמור
-              </button>
-            </form>
+            </div>
             {dutyMsg && <p className="mt-0.5 text-[10px] text-emerald-600">{dutyMsg}</p>}
           </section>
 
@@ -327,11 +345,16 @@ export function AdminDashboard() {
                     <input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
+                      onBlur={() => void saveEdit(s.id, editName, editRole)}
                       className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
                     />
                     <select
                       value={editRole}
-                      onChange={(e) => setEditRole(e.target.value as SoldierRoleId)}
+                      onChange={(e) => {
+                        const role = e.target.value as SoldierRoleId
+                        setEditRole(role)
+                        void saveEdit(s.id, editName, role)
+                      }}
                       className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
                     >
                       {SOLDIER_ROLES.map((r) => (
@@ -340,22 +363,13 @@ export function AdminDashboard() {
                         </option>
                       ))}
                     </select>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => void saveEdit(s.id)}
-                        className="rounded-lg bg-[#2563eb] px-2 py-1 text-[10px] font-bold text-white"
-                      >
-                        שמירה
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold"
-                      >
-                        ביטול
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="self-start rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold"
+                    >
+                      סגור
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -389,26 +403,15 @@ export function AdminDashboard() {
 
           <section className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
             <div className="grid grid-cols-2 gap-2">
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault()
-                  await updateSharePhone(sharePhone)
-                  setPhoneMsg('טלפון עודכן')
-                }}
-              >
+              <div>
                 <p className="text-[10px] font-bold text-slate-500">טלפון לשיתוף</p>
-                <div className="mt-1 flex gap-1">
-                  <input
-                    value={sharePhone}
-                    onChange={(e) => setSharePhone(e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 px-1 py-1 text-[11px]"
-                  />
-                  <button type="submit" className="rounded-lg bg-slate-100 px-2 text-[10px] font-bold">
-                    שמור
-                  </button>
-                </div>
+                <input
+                  value={sharePhone}
+                  onChange={(e) => queueSharePhone(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-1 py-1 text-[11px]"
+                />
                 {phoneMsg && <p className="text-[10px] text-emerald-600">{phoneMsg}</p>}
-              </form>
+              </div>
               <form
                 onSubmit={async (e) => {
                   e.preventDefault()

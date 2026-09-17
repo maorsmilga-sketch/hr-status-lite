@@ -149,6 +149,15 @@ export async function upsertAttendance(
   await batch.commit()
 }
 
+export async function fetchAttendanceRecord(
+  soldierId: string,
+  recordDate: string,
+): Promise<AttendanceRecord | null> {
+  const snap = await getDoc(doc(db, 'attendance_records', attendanceDocId(soldierId, recordDate)))
+  if (!snap.exists()) return null
+  return mapAttendance(snap.id, snap.data())
+}
+
 export async function fetchAttendanceForDate(recordDate: string): Promise<AttendanceRecord[]> {
   const q = query(
     collection(db, 'attendance_records'),

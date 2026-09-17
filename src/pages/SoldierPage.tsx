@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OperationalDutyModal } from '../components/OperationalDutyModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
 import { STATUSES, STATUS_OTHER } from '../constants/statuses'
 import { eachDayInRange, todayISO } from '../lib/dates'
-import { fetchSoldiers, updateSoldierOperationalDuty, upsertAttendance } from '../lib/db'
+import {
+  fetchAttendanceRecord,
+  fetchSoldiers,
+  updateSoldierOperationalDuty,
+  upsertAttendance,
+} from '../lib/db'
 import { getStoredSoldierId, setStoredSoldierId } from '../lib/storage'
 import type { Soldier } from '../types/database'
 
@@ -20,6 +25,8 @@ export function SoldierPage() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [opModalOpen, setOpModalOpen] = useState(false)
+  const hydrateRef = useRef(0)
+  const notesDirty = useRef(false)
 
   const selectedSoldier = useMemo(
     () => soldiers.find((s) => s.id === selectedId),
@@ -49,29 +56,38 @@ export function SoldierPage() {
     if (selectedId) setStoredSoldierId(selectedId)
   }, [selectedId])
 
-  async function saveOperationalDuty(start: string, end: string) {
+  useEffect(() => {
+    if (!selectedId || showRange) return
+    const token = ++hydrateRef.current
+    notesDirty.current = false
+    void fetchAttendanceRecord(selectedId, singleDate).then((rec) => {
+      if (token !== hydrateRef.current) return
+      if (rec) {
+        setStatus(rec.status)
+        setOtherNotes(rec.notes ?? '')
+      } else {
+        setStatus(null)
+        setOtherNotes('')
+      }
+    })
+  }, [selectedId, singleDate, showRange])
+
+  const saveOperationalDuty = useCallback(async (start: string, end: string) => {
     if (!selectedId) return
     await updateSoldierOperationalDuty(selectedId, start, end)
     await loadSoldiers()
     setMessage({ type: 'ok', text: 'תעסוקה מבצעית עודכנה' })
-  }
+  }, [selectedId, loadSoldiers])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setMessage(null)
+  async function persist(nextStatus: string, nextNotes: string) {
     if (!selectedId) {
       setMessage({ type: 'err', text: 'יש לבחור שם' })
       return
     }
-    if (!status) {
-      setMessage({ type: 'err', text: 'יש לבחור סטטוס' })
-      return
-    }
-    if (status === STATUS_OTHER && !otherNotes.trim()) {
+    if (nextStatus === STATUS_OTHER && !nextNotes.trim()) {
       setMessage({ type: 'err', text: 'יש להזין פירוט עבור "אחר"' })
       return
     }
-
     const dates = showRange ? eachDayInRange(rangeStart, rangeEnd) : [singleDate]
     if (dates.length === 0) {
       setMessage({ type: 'err', text: 'טווח תאריכים לא תקין' })
@@ -79,24 +95,56 @@ export function SoldierPage() {
     }
 
     setSubmitting(true)
-    const notes = status === STATUS_OTHER ? otherNotes.trim() : null
+    setMessage(null)
+    const notes = nextStatus === STATUS_OTHER ? nextNotes.trim() : null
     try {
-      await upsertAttendance(selectedId, dates, status, notes)
+      await upsertAttendance(selectedId, dates, nextStatus, notes)
+      setMessage({
+        type: 'ok',
+        text: dates.length === 1 ? 'נשמר' : `נשמרו ${dates.length} ימים`,
+      })
     } catch {
-      setSubmitting(false)
       setMessage({ type: 'err', text: 'שמירה נכשלה' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function pickStatus(label: string) {
+    setStatus(label)
+    if (label === STATUS_OTHER) {
+      if (otherNotes.trim()) void persist(label, otherNotes)
+      else setMessage({ type: 'err', text: 'יש להזין פירוט עבור "אחר"' })
       return
     }
-    setSubmitting(false)
-    setMessage({
-      type: 'ok',
-      text: dates.length === 1 ? 'הסטטוס נשמר' : `נשמרו ${dates.length} ימים`,
-    })
+    setOtherNotes('')
+    void persist(label, '')
   }
+
+  useEffect(() => {
+    if (!notesDirty.current) return
+    if (status !== STATUS_OTHER) return
+    if (!otherNotes.trim()) return
+    const t = window.setTimeout(() => {
+      void persist(STATUS_OTHER, otherNotes)
+    }, 500)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherNotes])
+
+  useEffect(() => {
+    if (!showRange || !status) return
+    if (status === STATUS_OTHER && !otherNotes.trim()) return
+    const t = window.setTimeout(() => {
+      void persist(status, otherNotes)
+    }, 400)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeStart, rangeEnd])
 
   return (
     <main className="flex min-h-0 flex-1 flex-col px-3 py-2">
-      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
           <div className="mb-1.5 flex items-center justify-between gap-2">
             <p className="text-xs font-extrabold text-slate-800">שם החייל/ת</p>
@@ -161,10 +209,11 @@ export function SoldierPage() {
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setStatus(s.label)}
+                  disabled={submitting}
+                  onClick={() => pickStatus(s.label)}
                   className={`rounded-xl px-2 py-2 text-center text-xs font-bold leading-snug transition ${s.color} ${
                     selected ? 'ring-2 ring-[#2563eb] ring-offset-1' : 'opacity-90'
-                  }`}
+                  } disabled:opacity-60`}
                 >
                   {s.label}
                 </button>
@@ -175,13 +224,19 @@ export function SoldierPage() {
             <input
               type="text"
               value={otherNotes}
-              onChange={(e) => setOtherNotes(e.target.value)}
+              onChange={(e) => {
+                notesDirty.current = true
+                setOtherNotes(e.target.value)
+              }}
               placeholder="פירוט…"
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
             />
           )}
         </section>
 
+        <p className="text-center text-[11px] font-bold text-slate-400">
+          {submitting ? 'שומר…' : 'השינויים נשמרים אוטומטית'}
+        </p>
         {message && (
           <p
             className={`text-center text-xs font-bold ${
@@ -191,15 +246,7 @@ export function SoldierPage() {
             {message.text}
           </p>
         )}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-2xl bg-[#2563eb] py-3 text-base font-extrabold text-white shadow-md shadow-blue-500/25 disabled:opacity-60"
-        >
-          {submitting ? 'שומר…' : 'שליחה'}
-        </button>
-      </form>
+      </div>
 
       <OperationalDutyModal
         open={opModalOpen}

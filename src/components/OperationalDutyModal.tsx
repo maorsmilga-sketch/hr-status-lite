@@ -18,39 +18,40 @@ export function OperationalDutyModal({
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
     if (open) {
       setStart(initialStart ?? '')
       setEnd(initialEnd ?? '')
       setError(null)
+      setSaved(false)
+      setDirty(false)
     }
   }, [open, initialStart, initialEnd])
 
-  if (!open) return null
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    if (!start || !end) {
-      setError('יש למלא תאריך התחלה וסיום')
-      return
-    }
+  useEffect(() => {
+    if (!open || !dirty) return
+    if (!start || !end) return
     if (end < start) {
       setError('תאריך הסיום חייב להיות אחרי תאריך ההתחלה')
+      setSaved(false)
       return
     }
-    setSaving(true)
-    try {
-      await onSave(start, end)
-      onClose()
-    } catch {
-      setError('שמירה נכשלה. נסו שוב.')
-    } finally {
-      setSaving(false)
-    }
-  }
+    const t = window.setTimeout(() => {
+      setSaving(true)
+      setError(null)
+      void onSave(start, end)
+        .then(() => setSaved(true))
+        .catch(() => setError('שמירה נכשלה. נסו שוב.'))
+        .finally(() => setSaving(false))
+    }, 400)
+    return () => window.clearTimeout(t)
+  }, [start, end, open, dirty, onSave])
+
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-[2px] sm:items-center">
@@ -65,15 +66,19 @@ export function OperationalDutyModal({
           תעסוקה מבצעית
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          הזינו את טווח התאריכים שבו אתם זמינים לתעסוקה מבצעית
+          הזינו את טווח התאריכים שבו אתם זמינים לתעסוקה מבצעית. השינוי נשמר אוטומטית.
         </p>
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <div className="mt-5 space-y-4">
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">מתאריך</span>
             <input
               type="date"
               value={start}
-              onChange={(e) => setStart(e.target.value)}
+              onChange={(e) => {
+                setDirty(true)
+                setSaved(false)
+                setStart(e.target.value)
+              }}
               className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-[#c9a44a]/40"
             />
           </label>
@@ -82,28 +87,26 @@ export function OperationalDutyModal({
             <input
               type="date"
               value={end}
-              onChange={(e) => setEnd(e.target.value)}
+              onChange={(e) => {
+                setDirty(true)
+                setSaved(false)
+                setEnd(e.target.value)
+              }}
               className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-[#c9a44a]/40"
             />
           </label>
           {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-2xl border border-slate-200 py-3.5 font-semibold text-slate-700 active:bg-slate-50"
-            >
-              ביטול
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 rounded-2xl bg-[#2563eb] py-3.5 font-bold text-white shadow-md disabled:opacity-60"
-            >
-              {saving ? 'שומר…' : 'שמירה'}
-            </button>
-          </div>
-        </form>
+          {!error && (saving || saved) && (
+            <p className="text-sm font-medium text-emerald-600">{saving ? 'שומר…' : 'נשמר'}</p>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-2xl bg-[#2563eb] py-3.5 font-bold text-white shadow-md"
+          >
+            סגור
+          </button>
+        </div>
       </div>
     </div>
   )

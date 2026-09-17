@@ -44,6 +44,8 @@ export function todayISO(): string {
   return formatDateISO(new Date())
 }
 
+export const DAYS_IN_VIEW = 7
+
 export function startOfWeekSunday(iso: string): string {
   const d = parseISODateLocal(iso)
   d.setDate(d.getDate() - d.getDay())
@@ -55,13 +57,12 @@ export function weekDays(weekStartIso: string): string[] {
 }
 
 export function addWeeks(weekStartIso: string, delta: number): string {
-  return addDays(weekStartIso, delta * 7)
+  return addDays(weekStartIso, delta * DAYS_IN_VIEW)
 }
 
-export function formatWeekRange(weekStartIso: string): string {
-  const end = addDays(weekStartIso, 6)
-  const start = parseISODateLocal(weekStartIso)
-  const endD = parseISODateLocal(end)
+export function formatDateRange(startIso: string, endIso: string): string {
+  const start = parseISODateLocal(startIso)
+  const endD = parseISODateLocal(endIso)
   const startLabel = start.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
   const endLabel = endD.toLocaleDateString('he-IL', {
     day: 'numeric',
@@ -69,6 +70,10 @@ export function formatWeekRange(weekStartIso: string): string {
     year: 'numeric',
   })
   return `${startLabel} – ${endLabel}`
+}
+
+export function formatWeekRange(weekStartIso: string): string {
+  return formatDateRange(weekStartIso, addDays(weekStartIso, DAYS_IN_VIEW - 1))
 }
 
 export function weekdayName(iso: string): string {
@@ -91,7 +96,7 @@ export function isDateInRange(iso: string, start: string, end: string): boolean 
 }
 
 export function visibleWeekDays(weekStartIso: string, rangeStart: string, rangeEnd: string): string[] {
-  return weekDays(weekStartIso).filter((d) => isDateInRange(d, rangeStart, rangeEnd))
+  return visibleWindowDays(weekStartIso, rangeStart, rangeEnd)
 }
 
 export function canMoveWeek(
@@ -100,12 +105,69 @@ export function canMoveWeek(
   rangeStart: string,
   rangeEnd: string,
 ): boolean {
-  const next = addWeeks(weekStartIso, delta)
-  return visibleWeekDays(next, rangeStart, rangeEnd).length > 0
+  return canMoveWindow(weekStartIso, delta, rangeStart, rangeEnd)
 }
 
 export function initialWeekStart(rangeStart: string, rangeEnd: string): string {
-  const today = todayISO()
-  const anchor = isDateInRange(today, rangeStart, rangeEnd) ? today : rangeStart
-  return startOfWeekSunday(anchor)
+  return initialWindowStart(rangeStart, rangeEnd)
+}
+
+/** Rolling 7-day window starting from today (not a Sunday–Saturday calendar week). */
+export function initialWindowStart(rangeStart: string, rangeEnd: string, today = todayISO()): string {
+  if (today < rangeStart) return rangeStart
+  if (today > rangeEnd) {
+    const lastWindow = addDays(rangeEnd, -(DAYS_IN_VIEW - 1))
+    return lastWindow < rangeStart ? rangeStart : lastWindow
+  }
+  return today
+}
+
+export function visibleWindowDays(
+  startIso: string,
+  rangeStart: string,
+  rangeEnd: string,
+  count = DAYS_IN_VIEW,
+): string[] {
+  const days: string[] = []
+  let cur = startIso < rangeStart ? rangeStart : startIso
+  for (let i = 0; i < count; i += 1) {
+    if (cur > rangeEnd) break
+    days.push(cur)
+    cur = addDays(cur, 1)
+  }
+  return days
+}
+
+export function canMoveWindow(
+  startIso: string,
+  delta: number,
+  rangeStart: string,
+  rangeEnd: string,
+): boolean {
+  if (delta < 0) return startIso > rangeStart
+  const lastShown = visibleWindowDays(startIso, rangeStart, rangeEnd).at(-1)
+  return Boolean(lastShown && lastShown < rangeEnd)
+}
+
+export function moveWindow(
+  startIso: string,
+  delta: number,
+  rangeStart: string,
+  rangeEnd: string,
+): string {
+  if (!canMoveWindow(startIso, delta, rangeStart, rangeEnd)) return startIso
+  if (delta < 0) {
+    const prev = addDays(startIso, -DAYS_IN_VIEW)
+    return prev < rangeStart ? rangeStart : prev
+  }
+  const lastShown = visibleWindowDays(startIso, rangeStart, rangeEnd).at(-1)
+  if (!lastShown) return startIso
+  const next = addDays(lastShown, 1)
+  return next > rangeEnd ? startIso : next
+}
+
+export function formatWindowRange(startIso: string, rangeStart: string, rangeEnd: string): string {
+  const days = visibleWindowDays(startIso, rangeStart, rangeEnd)
+  if (days.length === 0) return ''
+  return formatDateRange(days[0], days[days.length - 1])
 }
