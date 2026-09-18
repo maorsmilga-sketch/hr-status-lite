@@ -26,8 +26,9 @@ function StatusIcon({ id }: { id: string }) {
   if (id === 'on_base') {
     return (
       <svg viewBox="0 0 24 24" className="mx-auto h-5 w-5" fill="none" aria-hidden>
-        <path d="M5 20.5V9.2L12 4.5l7 4.7v11.3H5Z" fill="currentColor" opacity="0.95" />
-        <path d="M10.2 20.5v-5.4h3.6v5.4" stroke="#fff" strokeWidth="1.6" />
+        <path d="M4.8 20.5V10.2L12 5.4l7.2 4.8v10.3H4.8Z" fill="currentColor" />
+        <path d="M8.2 12.2h2.1v2.1H8.2ZM11 12.2h2.1v2.1H11ZM13.8 12.2h2.1v2.1h-2.1Z" fill="#fff" />
+        <path d="M10.6 20.5v-3.6h2.8v3.6" fill="#fff" />
       </svg>
     )
   }
