@@ -184,9 +184,9 @@ export function SoldierPage() {
             type="button"
             disabled={!selectedId}
             onClick={() => setOpModalOpen(true)}
-            className="text-[11px] font-bold text-[#2563eb] disabled:text-slate-300"
+            className="max-w-[58%] text-left text-[11px] font-bold leading-tight text-[#2563eb] disabled:text-slate-300"
           >
-            תעסוקה מבצעית
+            עדכון תעסוקה מבצעית
           </button>
         </div>
 
