@@ -48,3 +48,19 @@ export function soldiersForShiftSlot<T extends { role: string }>(
   const needed = neededQualification(shiftRoleId)
   return soldiers.filter((s) => s.role === needed)
 }
+
+export type NamedShiftSlot = {
+  id: ShiftRoleId
+  period: ShiftPeriod
+  label: string
+}
+
+export function slotsForName(assignments: ShiftAssignments, name: string): NamedShiftSlot[] {
+  const n = name.trim()
+  if (!n) return []
+  return SHIFT_ROLES.filter((role) => assignments[role.id] === n).map((role) => ({
+    id: role.id,
+    period: role.period,
+    label: role.label,
+  }))
+}

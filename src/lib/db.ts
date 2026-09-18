@@ -14,6 +14,7 @@ import {
 import { isSoldierRole, type SoldierRoleId } from '../constants/roles'
 import { emptyAssignments, type ShiftAssignments } from '../constants/shifts'
 import type { AppSettings, AttendanceRecord, ShiftDay, Soldier } from '../types/database'
+import { eachDayInRange } from './dates'
 import { db } from './firebase'
 
 const DEFAULT_ADMIN_PASSWORD = '112233'
@@ -253,6 +254,33 @@ export async function fetchShiftsForDates(dates: string[]): Promise<Record<strin
     }
   })
   return result
+}
+
+export async function fetchShiftsInRange(start: string, end: string): Promise<Record<string, ShiftDay>> {
+  if (!start || !end || end < start) return {}
+  try {
+    const q = query(
+      collection(db, 'shifts_schedule'),
+      where('date', '>=', start),
+      where('date', '<=', end),
+      orderBy('date'),
+    )
+    const snap = await getDocs(q)
+    const result: Record<string, ShiftDay> = {}
+    snap.docs.forEach((d) => {
+      const data = d.data()
+      const date = String(data.date ?? d.id)
+      result[date] = {
+        id: d.id,
+        date,
+        assignments: mapAssignments(data.assignments as Record<string, unknown> | undefined),
+        updated_at: String(data.updated_at ?? ''),
+      }
+    })
+    return result
+  } catch {
+    return fetchShiftsForDates(eachDayInRange(start, end))
+  }
 }
 
 export async function saveShiftDay(date: string, assignments: ShiftAssignments): Promise<void> {

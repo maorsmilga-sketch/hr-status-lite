@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DayShiftPreview } from '../components/DayShiftPreview'
+import { MyShiftsSheet } from '../components/MyShiftsSheet'
 import { OperationalDutyModal } from '../components/OperationalDutyModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
 import { emptyAssignments, type ShiftAssignments } from '../constants/shifts'
@@ -52,6 +53,7 @@ export function SoldierPage() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [opModalOpen, setOpModalOpen] = useState(false)
+  const [myShiftsOpen, setMyShiftsOpen] = useState(false)
   const [shiftAssignments, setShiftAssignments] = useState<ShiftAssignments>(emptyAssignments)
   const [shiftsLoading, setShiftsLoading] = useState(true)
   const hydrateRef = useRef(0)
@@ -188,17 +190,27 @@ export function SoldierPage() {
           </button>
         </div>
 
-        <label className="block">
-          <span className="text-[10px] font-semibold text-slate-400">שם החייל/ת</span>
-          <div className="mt-0.5">
-            <SoldierSearchSelect
-              soldiers={soldiers}
-              value={selectedId}
-              onChange={setSelectedId}
-              disabled={loadingSoldiers}
-            />
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400">שם החייל/ת</p>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <SoldierSearchSelect
+                soldiers={soldiers}
+                value={selectedId}
+                onChange={setSelectedId}
+                disabled={loadingSoldiers}
+              />
+            </div>
+            <button
+              type="button"
+              disabled={!selectedSoldier}
+              onClick={() => setMyShiftsOpen(true)}
+              className="shrink-0 whitespace-nowrap rounded-xl bg-blue-50 px-3 py-2.5 text-[11px] font-extrabold text-[#2563eb] disabled:bg-slate-50 disabled:text-slate-300"
+            >
+              המשמרות שלי
+            </button>
           </div>
-        </label>
+        </div>
 
         <div className="mt-2 flex items-end gap-2">
           <label className="min-w-0 flex-1">
@@ -279,6 +291,12 @@ export function SoldierPage() {
         assignments={shiftAssignments}
         loading={shiftsLoading}
         highlightName={selectedSoldier?.name}
+      />
+
+      <MyShiftsSheet
+        open={myShiftsOpen}
+        soldier={selectedSoldier ?? null}
+        onClose={() => setMyShiftsOpen(false)}
       />
 
       <OperationalDutyModal
