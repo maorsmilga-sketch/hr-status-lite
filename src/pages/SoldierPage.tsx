@@ -176,15 +176,14 @@ export function SoldierPage() {
   }
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-2 px-3 py-2">
-      <section className="shrink-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-xs font-extrabold text-slate-800">עדכון נוכחות</p>
+    <main className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-2.5 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
+      <section className="max-sm:max-h-[min(52dvh,480px)] shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100 max-sm:overflow-y-auto sm:p-3">
+        <div className="mb-1.5 flex justify-end">
           <button
             type="button"
             disabled={!selectedId}
             onClick={() => setOpModalOpen(true)}
-            className="max-w-[58%] text-left text-[11px] font-bold leading-tight text-[#2563eb] disabled:text-slate-300"
+            className="text-[10px] font-bold leading-tight text-[#2563eb] disabled:text-slate-300 sm:text-[11px]"
           >
             עדכון תעסוקה מבצעית
           </button>
@@ -255,8 +254,8 @@ export function SoldierPage() {
           <p className="text-[10px] text-slate-400">עד 4 ימים קדימה</p>
         </div>
 
-        <p className="mt-2.5 mb-1.5 text-xs font-extrabold text-slate-800">סטטוס</p>
-        <div className="grid grid-cols-3 gap-1.5">
+        <p className="mt-2 mb-1 text-[11px] font-extrabold text-slate-800 sm:text-xs">סטטוס</p>
+        <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
           {STATUSES.map((s) => {
             const selected = status === s.label
             return (
@@ -265,7 +264,7 @@ export function SoldierPage() {
                 type="button"
                 disabled={submitting}
                 onClick={() => pickStatus(s.label)}
-                className={`rounded-2xl px-2 py-2.5 text-center text-xs font-bold leading-snug transition ${s.color} ${
+                className={`rounded-xl px-1.5 py-2 text-center text-[11px] font-bold leading-snug transition sm:rounded-2xl sm:px-2 sm:py-2.5 sm:text-xs ${s.color} ${
                   selected ? 'ring-2 ring-[#2563eb] ring-offset-1' : 'opacity-95'
                 } disabled:opacity-60`}
               >

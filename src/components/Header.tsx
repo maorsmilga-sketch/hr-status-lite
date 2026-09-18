@@ -14,13 +14,18 @@ export function Header() {
 
   return (
     <header className="shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <div className="flex flex-col items-center px-3 py-3 pt-[max(0.7rem,env(safe-area-inset-top))]">
-        <Logo size="md" />
-        <h1 className="mt-1.5 text-center text-xl font-black leading-tight tracking-tight text-slate-900">
-          חטיבת כרמלי
-          <span className="mt-0.5 block text-[1.05rem] font-extrabold">רפואה</span>
-        </h1>
-        <p className="mt-1.5 text-base font-bold tracking-wide text-[#2563eb]">{subtitle}</p>
+      <div className="flex items-center gap-2 px-2.5 py-1 pb-1 pt-[max(0.25rem,env(safe-area-inset-top))] sm:px-3 sm:py-1.5">
+        <Logo size="sm" />
+        <div className="min-w-0 flex-1 text-center leading-none">
+          <h1 className="text-[clamp(0.8125rem,3.4vw,1.125rem)] font-black tracking-tight text-slate-900">
+            חטיבת כרמלי
+            <span className="font-extrabold text-slate-800"> · רפואה</span>
+          </h1>
+          <p className="mt-0.5 text-[clamp(0.6875rem,2.9vw,0.9375rem)] font-bold text-[#2563eb]">{subtitle}</p>
+        </div>
+        <div className="shrink-0" aria-hidden>
+          <Logo size="sm" />
+        </div>
       </div>
     </header>
   )

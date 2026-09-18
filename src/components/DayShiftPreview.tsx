@@ -47,14 +47,14 @@ export function DayShiftPreview({
   highlightName?: string
 }) {
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-1.5">
-      <div className="flex items-center justify-between px-0.5">
-        <p className="text-xs font-extrabold text-slate-800">משמרות היום</p>
+    <section className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden pb-0.5">
+      <div className="flex shrink-0 items-center justify-between px-0.5">
+        <p className="text-[11px] font-extrabold text-slate-800 sm:text-xs">משמרות היום</p>
         <p className="text-[11px] font-bold text-slate-400">
           {weekdayShort(date)} · {shortDayLabel(date)}
         </p>
       </div>
-      <div dir="rtl" className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+      <div dir="rtl" className="grid min-h-0 flex-1 grid-cols-2 gap-1.5 sm:gap-2">
         <ShiftPreviewCard
           period="day"
           title="משמרת בוקר"
@@ -98,9 +98,9 @@ function ShiftPreviewCard({
   const roles = rolesForPeriod(period)
 
   return (
-    <article className={`flex min-h-0 flex-col overflow-hidden rounded-2xl p-2.5 shadow-sm ring-1 ${cardClass}`}>
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${badgeClass}`}>
+    <article className={`flex min-h-0 flex-col overflow-hidden rounded-xl p-2 shadow-sm ring-1 sm:rounded-2xl sm:p-2.5 ${cardClass}`}>
+      <div className="mb-1 flex shrink-0 items-center gap-1 sm:mb-2 sm:gap-1.5">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8 ${badgeClass}`}>
           <ShiftPeriodIcon period={period} />
         </span>
         <p className="truncate text-[12px] font-extrabold leading-tight text-slate-800">{title}</p>
