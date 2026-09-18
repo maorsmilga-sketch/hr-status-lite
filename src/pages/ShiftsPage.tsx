@@ -121,7 +121,7 @@ export function ShiftsPage() {
     const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX.current
     touchX.current = null
     if (Math.abs(dx) < 70) return
-    move(dx > 0 ? -1 : 1)
+    move(dx > 0 ? 1 : -1)
   }
 
   return (
@@ -130,10 +130,10 @@ export function ShiftsPage() {
         <div dir="ltr" className="flex items-center gap-2">
           <button
             type="button"
-            disabled={!canPrev}
-            onClick={() => move(-1)}
+            disabled={!canNext}
+            onClick={() => move(1)}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg disabled:opacity-30"
-            aria-label="ימים קודמים"
+            aria-label="ימים הבאים"
           >
             ‹
           </button>
@@ -142,10 +142,10 @@ export function ShiftsPage() {
           </p>
           <button
             type="button"
-            disabled={!canNext}
-            onClick={() => move(1)}
+            disabled={!canPrev}
+            onClick={() => move(-1)}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg disabled:opacity-30"
-            aria-label="ימים הבאים"
+            aria-label="ימים קודמים"
           >
             ›
           </button>
