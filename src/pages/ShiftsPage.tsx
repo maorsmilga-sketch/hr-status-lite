@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
+import { ShiftPeriodIcon } from '../components/DayShiftPreview'
 import { ShiftPickerSheet } from '../components/ShiftPickerSheet'
 import {
   emptyAssignments,
@@ -128,6 +129,7 @@ export function ShiftsPage() {
             disabled={!canPrev}
             onClick={() => move(-1)}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg disabled:opacity-30"
+            aria-label="ימים קודמים"
           >
             ‹
           </button>
@@ -139,6 +141,7 @@ export function ShiftsPage() {
             disabled={!canNext}
             onClick={() => move(1)}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg disabled:opacity-30"
+            aria-label="ימים הבאים"
           >
             ›
           </button>
@@ -163,7 +166,7 @@ export function ShiftsPage() {
             {editing ? 'יציאה' : 'עריכה'}
           </button>
         </div>
-        <div dir="ltr" className="mt-2 flex gap-1 overflow-x-auto">
+        <div dir="rtl" className="mt-2 flex gap-1">
           {dates.map((date) => {
             const isToday = date === today
             const isActive = date === activeDate
@@ -172,7 +175,7 @@ export function ShiftsPage() {
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`w-11 shrink-0 rounded-xl px-0.5 py-1.5 text-center ${
+                className={`min-w-0 flex-1 rounded-xl px-0.5 py-1.5 text-center ${
                   isActive
                     ? 'bg-[#2563eb] text-white shadow-md'
                     : isToday
@@ -197,7 +200,7 @@ export function ShiftsPage() {
       ) : (
         <div className="mt-2 grid min-h-0 flex-1 grid-rows-2 gap-2">
           <GlassShiftCard
-            title="משמרת יום"
+            title="משמרת בוקר"
             period="day"
             tint="from-amber-100/70 to-white/40"
             assignments={assignments}
@@ -270,7 +273,10 @@ function GlassShiftCard({
     <section
       className={`min-h-0 overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br ${tint} p-3 shadow-lg ring-1 ring-white/50 backdrop-blur-xl`}
     >
-      <p className="mb-2 text-[11px] font-extrabold tracking-wide text-slate-600">{title}</p>
+      <div className="mb-2 flex items-center gap-1.5">
+        <ShiftPeriodIcon period={period} />
+        <p className="text-[11px] font-extrabold tracking-wide text-slate-600">{title}</p>
+      </div>
       <div className="flex h-[calc(100%-1.25rem)] flex-col justify-between gap-1">
         {roles.map((role) => {
           const name = assignments[role.id]
