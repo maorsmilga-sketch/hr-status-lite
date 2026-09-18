@@ -44,6 +44,18 @@ export function todayISO(): string {
   return formatDateISO(new Date())
 }
 
+/** Soldiers can report today and up to this many days after today. */
+export const MAX_FORWARD_DAYS = 4
+
+export function maxUpdateDateISO(today = todayISO()): string {
+  return addDays(today, MAX_FORWARD_DAYS)
+}
+
+export function clampToMaxUpdateDate(iso: string, today = todayISO()): string {
+  const max = maxUpdateDateISO(today)
+  return iso > max ? max : iso
+}
+
 export const DAYS_IN_VIEW = 7
 
 export function startOfWeekSunday(iso: string): string {

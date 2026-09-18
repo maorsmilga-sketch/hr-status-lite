@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OperationalDutyModal } from '../components/OperationalDutyModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
-import { STATUSES, STATUS_OTHER } from '../constants/statuses'
-import { eachDayInRange, todayISO } from '../lib/dates'
+import { STATUSES } from '../constants/statuses'
+import { clampToMaxUpdateDate, eachDayInRange, maxUpdateDateISO, todayISO } from '../lib/dates'
 import {
   fetchAttendanceRecord,
   fetchSoldiers,
@@ -21,17 +21,16 @@ export function SoldierPage() {
   const [rangeStart, setRangeStart] = useState(todayISO())
   const [rangeEnd, setRangeEnd] = useState(todayISO())
   const [status, setStatus] = useState<string | null>(null)
-  const [otherNotes, setOtherNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [opModalOpen, setOpModalOpen] = useState(false)
   const hydrateRef = useRef(0)
-  const notesDirty = useRef(false)
 
   const selectedSoldier = useMemo(
     () => soldiers.find((s) => s.id === selectedId),
     [soldiers, selectedId],
   )
+  const maxDate = maxUpdateDateISO()
 
   const loadSoldiers = useCallback(async () => {
     setLoadingSoldiers(true)
@@ -59,15 +58,12 @@ export function SoldierPage() {
   useEffect(() => {
     if (!selectedId || showRange) return
     const token = ++hydrateRef.current
-    notesDirty.current = false
     void fetchAttendanceRecord(selectedId, singleDate).then((rec) => {
       if (token !== hydrateRef.current) return
       if (rec) {
         setStatus(rec.status)
-        setOtherNotes(rec.notes ?? '')
       } else {
         setStatus(null)
-        setOtherNotes('')
       }
     })
   }, [selectedId, singleDate, showRange])
@@ -79,13 +75,9 @@ export function SoldierPage() {
     setMessage({ type: 'ok', text: 'תעסוקה מבצעית עודכנה' })
   }, [selectedId, loadSoldiers])
 
-  async function persist(nextStatus: string, nextNotes: string) {
+  async function persist(nextStatus: string) {
     if (!selectedId) {
       setMessage({ type: 'err', text: 'יש לבחור שם' })
-      return
-    }
-    if (nextStatus === STATUS_OTHER && !nextNotes.trim()) {
-      setMessage({ type: 'err', text: 'יש להזין פירוט עבור "אחר"' })
       return
     }
     const dates = showRange ? eachDayInRange(rangeStart, rangeEnd) : [singleDate]
@@ -93,12 +85,15 @@ export function SoldierPage() {
       setMessage({ type: 'err', text: 'טווח תאריכים לא תקין' })
       return
     }
+    if (dates.some((date) => date > maxDate)) {
+      setMessage({ type: 'err', text: 'ניתן לעדכן עד 4 ימים קדימה מהיום' })
+      return
+    }
 
     setSubmitting(true)
     setMessage(null)
-    const notes = nextStatus === STATUS_OTHER ? nextNotes.trim() : null
     try {
-      await upsertAttendance(selectedId, dates, nextStatus, notes)
+      await upsertAttendance(selectedId, dates, nextStatus, null)
       setMessage({
         type: 'ok',
         text: dates.length === 1 ? 'נשמר' : `נשמרו ${dates.length} ימים`,
@@ -112,35 +107,21 @@ export function SoldierPage() {
 
   function pickStatus(label: string) {
     setStatus(label)
-    if (label === STATUS_OTHER) {
-      if (otherNotes.trim()) void persist(label, otherNotes)
-      else setMessage({ type: 'err', text: 'יש להזין פירוט עבור "אחר"' })
-      return
-    }
-    setOtherNotes('')
-    void persist(label, '')
+    void persist(label)
   }
 
   useEffect(() => {
-    if (!notesDirty.current) return
-    if (status !== STATUS_OTHER) return
-    if (!otherNotes.trim()) return
-    const t = window.setTimeout(() => {
-      void persist(STATUS_OTHER, otherNotes)
-    }, 500)
-    return () => window.clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otherNotes])
-
-  useEffect(() => {
     if (!showRange || !status) return
-    if (status === STATUS_OTHER && !otherNotes.trim()) return
     const t = window.setTimeout(() => {
-      void persist(status, otherNotes)
+      void persist(status)
     }, 400)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeStart, rangeEnd])
+
+  function applyDate(value: string, setter: (next: string) => void) {
+    setter(clampToMaxUpdateDate(value, todayISO()))
+  }
 
   return (
     <main className="flex min-h-0 flex-1 flex-col px-3 py-2">
@@ -171,10 +152,11 @@ export function SoldierPage() {
               <span className="text-[10px] font-semibold text-slate-400">תאריך</span>
               <input
                 type="date"
+                max={maxDate}
                 value={showRange ? rangeStart : singleDate}
                 onChange={(e) => {
-                  if (showRange) setRangeStart(e.target.value)
-                  else setSingleDate(e.target.value)
+                  if (showRange) applyDate(e.target.value, setRangeStart)
+                  else applyDate(e.target.value, setSingleDate)
                 }}
                 className="mt-0.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm"
               />
@@ -184,8 +166,9 @@ export function SoldierPage() {
                 <span className="text-[10px] font-semibold text-slate-400">עד</span>
                 <input
                   type="date"
+                  max={maxDate}
                   value={rangeEnd}
-                  onChange={(e) => setRangeEnd(e.target.value)}
+                  onChange={(e) => applyDate(e.target.value, setRangeEnd)}
                   className="mt-0.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm"
                 />
               </label>
@@ -193,16 +176,22 @@ export function SoldierPage() {
           </div>
           <button
             type="button"
-            onClick={() => setShowRange((v) => !v)}
+            onClick={() => {
+              setSingleDate((d) => clampToMaxUpdateDate(d))
+              setRangeStart((d) => clampToMaxUpdateDate(d))
+              setRangeEnd((d) => clampToMaxUpdateDate(d))
+              setShowRange((v) => !v)
+            }}
             className="mt-1.5 text-[11px] font-bold text-[#2563eb]"
           >
             {showRange ? 'חזרה ליום בודד' : 'עדכון טווח ימים'}
           </button>
+          <p className="mt-1 text-[10px] text-slate-400">ניתן לעדכן עד 4 ימים קדימה מהיום</p>
         </section>
 
         <section className="min-h-0 flex-1 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
           <p className="mb-1.5 text-xs font-extrabold text-slate-800">סטטוס</p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {STATUSES.map((s) => {
               const selected = status === s.label
               return (
@@ -211,7 +200,7 @@ export function SoldierPage() {
                   type="button"
                   disabled={submitting}
                   onClick={() => pickStatus(s.label)}
-                  className={`rounded-xl px-2 py-2 text-center text-xs font-bold leading-snug transition ${s.color} ${
+                  className={`rounded-xl px-2 py-3 text-center text-xs font-bold leading-snug transition ${s.color} ${
                     selected ? 'ring-2 ring-[#2563eb] ring-offset-1' : 'opacity-90'
                   } disabled:opacity-60`}
                 >
@@ -220,18 +209,6 @@ export function SoldierPage() {
               )
             })}
           </div>
-          {status === STATUS_OTHER && (
-            <input
-              type="text"
-              value={otherNotes}
-              onChange={(e) => {
-                notesDirty.current = true
-                setOtherNotes(e.target.value)
-              }}
-              placeholder="פירוט…"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-            />
-          )}
         </section>
 
         <p className="text-center text-[11px] font-bold text-slate-400">
