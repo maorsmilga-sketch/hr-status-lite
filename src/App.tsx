@@ -3,12 +3,14 @@ import { AppShell } from './components/AppShell'
 import { AdminDashboard, AdminGate } from './pages/AdminPage'
 import { ShiftsPage } from './pages/ShiftsPage'
 import { SoldierPage } from './pages/SoldierPage'
+import { MyShiftsPage } from './pages/MyShiftsPage'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />}>
+          <Route path="/my-shifts" element={<MyShiftsPage />} />
           <Route path="/" element={<SoldierPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />
           <Route

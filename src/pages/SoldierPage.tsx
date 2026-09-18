@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { OperationalDutyModal } from '../components/OperationalDutyModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
 import { STATUSES } from '../constants/statuses'
@@ -144,6 +145,17 @@ export function SoldierPage() {
             onChange={setSelectedId}
             disabled={loadingSoldiers}
           />
+          {selectedSoldier && (
+            <Link
+              to={`/my-shifts?soldier=${encodeURIComponent(selectedSoldier.id)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-[#2563eb]"
+              aria-label="המשמרות שלי (נפתח בלשונית חדשה)"
+            >
+              המשמרות שלי
+            </Link>
+          )}
         </section>
 
         <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
