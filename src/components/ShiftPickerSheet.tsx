@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { roleLabel } from '../constants/roles'
 import { soldiersForShiftSlot, type ShiftRoleId } from '../constants/shifts'
+import { useVisualViewportBox } from '../lib/visualViewport'
 import type { Soldier } from '../types/database'
 
 type ShiftPickerSheetProps = {
@@ -24,6 +25,7 @@ export function ShiftPickerSheet({
 }: ShiftPickerSheetProps) {
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
+  const viewport = useVisualViewportBox()
 
   useEffect(() => {
     if (open) {
@@ -46,22 +48,28 @@ export function ShiftPickerSheet({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-[2px]">
-      <div className="flex max-h-[80dvh] w-full max-w-lg flex-col rounded-t-3xl bg-white pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-3">
+    <div
+      className="fixed inset-x-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-[2px]"
+      style={{ top: viewport.offsetTop, height: viewport.height }}
+    >
+      <div
+        className="flex w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl"
+        style={{ maxHeight: viewport.height, paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
           <p className="text-sm font-extrabold text-slate-900">שיבוץ {title}</p>
           <button type="button" onClick={onClose} className="text-sm font-bold text-slate-400">
             סגור
           </button>
         </div>
-        <div className="px-4">
+        <div className="shrink-0 px-4">
           <input
             autoFocus
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="חיפוש שם…"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base outline-none focus:border-[#2563eb]"
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-base outline-none focus:border-[#2563eb]"
           />
         </div>
         <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-2">
@@ -99,7 +107,7 @@ export function ShiftPickerSheet({
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="mx-4 mt-2 rounded-2xl bg-slate-100 py-3 text-sm font-extrabold text-[#2563eb]"
+            className="mx-4 mt-2 shrink-0 rounded-2xl bg-slate-100 py-3 text-sm font-extrabold text-[#2563eb]"
           >
             אחר — הצג את כל החיילים
           </button>

@@ -55,7 +55,7 @@ export function SoldierSearchSelect({
           setOpen(true)
           if (!e.target.value) onChange('')
         }}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none ring-[#2563eb]/25 focus:border-[#2563eb] focus:ring-2"
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-center text-sm outline-none ring-[#2563eb]/25 focus:border-[#2563eb] focus:ring-2"
       />
       {open && (
         <ul className="absolute z-30 mt-1 max-h-40 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">

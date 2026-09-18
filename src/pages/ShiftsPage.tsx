@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
 import { ShiftPeriodIcon } from '../components/DayShiftPreview'
+import { MyShiftsSheet } from '../components/MyShiftsSheet'
 import { ShiftPickerSheet } from '../components/ShiftPickerSheet'
 import {
   emptyAssignments,
@@ -26,6 +27,7 @@ import {
   saveShiftDay,
   verifyAdminPassword,
 } from '../lib/db'
+import { getStoredSoldierId } from '../lib/storage'
 import type { Soldier } from '../types/database'
 
 export function ShiftsPage() {
@@ -40,6 +42,7 @@ export function ShiftsPage() {
   const [pwOpen, setPwOpen] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [picking, setPicking] = useState<{ id: ShiftRoleId; label: string } | null>(null)
+  const [myShiftsOpen, setMyShiftsOpen] = useState(false)
   const touchX = useRef<number | null>(null)
 
   const dates = useMemo(
@@ -51,6 +54,7 @@ export function ShiftsPage() {
   const canNext = canMoveWindow(viewStart, 1, dutyStart, dutyEnd)
   const activeDate = dates.includes(selectedDate) ? selectedDate : (dates[0] ?? today)
   const assignments = days[activeDate] ?? emptyAssignments()
+  const storedSoldier = soldiers.find((s) => s.id === getStoredSoldierId()) ?? null
 
   const loadMeta = useCallback(async () => {
     const settings = await getAppSettings()
@@ -113,7 +117,7 @@ export function ShiftsPage() {
     touchX.current = e.changedTouches[0]?.clientX ?? null
   }
   function onTouchEnd(e: React.TouchEvent) {
-    if (picking || touchX.current == null) return
+    if (picking || myShiftsOpen || touchX.current == null) return
     const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX.current
     touchX.current = null
     if (Math.abs(dx) < 70) return
@@ -191,6 +195,13 @@ export function ShiftsPage() {
             )
           })}
         </div>
+        <button
+          type="button"
+          onClick={() => setMyShiftsOpen(true)}
+          className="mt-2 w-full rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-extrabold text-[#2563eb]"
+        >
+          {storedSoldier ? `המשמרות של ${storedSoldier.name}` : 'המשמרות שלי'}
+        </button>
       </section>
 
       {loading ? (
@@ -222,6 +233,12 @@ export function ShiftsPage() {
         <p className="mt-2 text-center text-[11px] font-bold text-slate-400">השינויים נשמרים אוטומטית</p>
       )}
       {message && <p className="mt-1 text-center text-[11px] font-bold text-[#2563eb]">{message}</p>}
+
+      <MyShiftsSheet
+        open={myShiftsOpen}
+        soldier={storedSoldier}
+        onClose={() => setMyShiftsOpen(false)}
+      />
 
       <ShiftPickerSheet
         open={!!picking}
