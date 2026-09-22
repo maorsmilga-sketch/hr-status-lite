@@ -1,5 +1,6 @@
 import type { SoldierRoleId } from '../constants/roles'
 import type { ShiftAssignments } from '../constants/shifts'
+import type { StandbyAssignments } from '../constants/standby'
 
 export type Soldier = {
   id: string
@@ -27,9 +28,17 @@ export type ShiftDay = {
   updated_at: string
 }
 
+export type StandbyDay = {
+  id: string
+  date: string
+  assignments: StandbyAssignments
+  updated_at: string
+}
+
 export type AppSettings = {
   adminPassword: string
   dutyStart: string
   dutyEnd: string
   sharePhone: string
+  mtbPresets: string[]
 }

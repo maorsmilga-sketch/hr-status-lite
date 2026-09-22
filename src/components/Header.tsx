@@ -4,6 +4,7 @@ import { Logo } from './Logo'
 const PAGE_COPY: Record<string, string> = {
   '/': 'עדכון נוכחות',
   '/shifts': 'לוח משמרות',
+  '/standby': 'לוח כוננות',
   '/admin': 'לוח בקרה',
   '/my-shifts': 'המשמרות שלי',
 }
