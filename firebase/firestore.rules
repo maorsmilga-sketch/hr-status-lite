@@ -11,6 +11,9 @@ service cloud.firestore {
     match /shifts_schedule/{shiftId} {
       allow read, write: if true;
     }
+    match /standby_schedule/{dayId} {
+      allow read, write: if true;
+    }
     match /settings/{docId} {
       allow read, write: if true;
     }

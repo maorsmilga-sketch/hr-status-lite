@@ -12,8 +12,10 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { isSoldierRole, type SoldierRoleId } from '../constants/roles'
+import { MTB_PRESET_NAMES } from '../constants/mtbNames'
 import { emptyAssignments, type ShiftAssignments } from '../constants/shifts'
-import type { AppSettings, AttendanceRecord, ShiftDay, Soldier } from '../types/database'
+import { emptyStandbyAssignments, type StandbyAssignments } from '../constants/standby'
+import type { AppSettings, AttendanceRecord, ShiftDay, StandbyDay, Soldier } from '../types/database'
 import { eachDayInRange } from './dates'
 import { db } from './firebase'
 
@@ -55,12 +57,44 @@ function defaultsFromEnvPhone(): string {
 }
 
 function mapSettings(data: Record<string, unknown> | undefined): AppSettings {
+  const storedPresets = Array.isArray(data?.mtbPresets)
+    ? (data!.mtbPresets as unknown[]).map((n) => String(n).trim()).filter(Boolean)
+    : []
   return {
     adminPassword: String(data?.adminPassword ?? DEFAULT_ADMIN_PASSWORD) || DEFAULT_ADMIN_PASSWORD,
     dutyStart: String(data?.dutyStart ?? DEFAULT_DUTY_START) || DEFAULT_DUTY_START,
     dutyEnd: String(data?.dutyEnd ?? DEFAULT_DUTY_END) || DEFAULT_DUTY_END,
     sharePhone: String(data?.sharePhone ?? defaultsFromEnvPhone()),
+    mtbPresets: storedPresets,
   }
+}
+
+export function mergedMtbPresets(settings: AppSettings): string[] {
+  return [...new Set([...MTB_PRESET_NAMES, ...settings.mtbPresets].map((n) => n.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, 'he'),
+  )
+}
+
+function mapStandbyAssignments(data: Record<string, unknown> | undefined): StandbyAssignments {
+  const base = emptyStandbyAssignments()
+  if (!data) return base
+  for (const key of Object.keys(base) as (keyof StandbyAssignments)[]) {
+    const raw = data[key] as Record<string, unknown> | undefined
+    base[key] = {
+      mtb1: String(raw?.mtb1 ?? ''),
+      mtb2: String(raw?.mtb2 ?? ''),
+    }
+  }
+  return base
+}
+
+function namesFromStandby(assignments: StandbyAssignments): string[] {
+  const names: string[] = []
+  for (const slot of Object.values(assignments)) {
+    if (slot.mtb1.trim()) names.push(slot.mtb1.trim())
+    if (slot.mtb2.trim()) names.push(slot.mtb2.trim())
+  }
+  return names
 }
 
 export async function fetchSoldiers(): Promise<Soldier[]> {
@@ -304,4 +338,48 @@ export async function saveShiftWeek(
     })
   }
   await batch.commit()
+}
+
+export async function fetchStandbyForDates(dates: string[]): Promise<Record<string, StandbyDay>> {
+  const snaps = await Promise.all(dates.map((date) => getDoc(doc(db, 'standby_schedule', date))))
+  const result: Record<string, StandbyDay> = {}
+  snaps.forEach((snap, i) => {
+    const date = dates[i]
+    const data = snap.exists() ? snap.data() : undefined
+    result[date] = {
+      id: date,
+      date,
+      assignments: mapStandbyAssignments(data?.assignments as Record<string, unknown> | undefined),
+      updated_at: String(data?.updated_at ?? ''),
+    }
+  })
+  return result
+}
+
+export async function saveStandbyDay(date: string, assignments: StandbyAssignments): Promise<void> {
+  await setDoc(doc(db, 'standby_schedule', date), {
+    date,
+    assignments,
+    updated_at: new Date().toISOString(),
+  })
+}
+
+export async function saveStandbyDayAndPresets(
+  date: string,
+  assignments: StandbyAssignments,
+  currentPresets: string[],
+): Promise<string[]> {
+  await saveStandbyDay(date, assignments)
+  const merged = [...new Set([...currentPresets, ...namesFromStandby(assignments)])]
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'he'))
+  if (merged.length !== currentPresets.length || merged.some((n, i) => n !== currentPresets[i])) {
+    await setDoc(
+      SETTINGS_REF(),
+      { mtbPresets: merged, updated_at: new Date().toISOString() },
+      { merge: true },
+    )
+  }
+  return merged
 }

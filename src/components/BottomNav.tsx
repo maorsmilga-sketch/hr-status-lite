@@ -22,6 +22,17 @@ const tabs = [
     ),
   },
   {
+    to: '/standby',
+    label: 'כוננות',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 3 5 6v6c0 3.5 2.8 6.4 7 7.5 4.2-1.1 7-4 7-7.5V6l-7-3Z" />
+        <path d="M12 9v4" strokeLinecap="round" />
+        <circle cx="12" cy="16" r="0.8" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
     to: '/admin',
     label: 'מנהל',
     icon: (
@@ -36,14 +47,14 @@ const tabs = [
 export function BottomNav() {
   return (
     <nav className="shrink-0 border-t border-slate-200 bg-white pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-1">
-      <div className="grid grid-cols-3 px-2">
+      <div className="grid grid-cols-4 px-1">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}
             end={tab.to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-bold transition ${
+              `flex flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] font-bold transition ${
                 isActive ? 'bg-blue-50 text-[#2563eb]' : 'text-slate-400 active:bg-slate-50'
               }`
             }

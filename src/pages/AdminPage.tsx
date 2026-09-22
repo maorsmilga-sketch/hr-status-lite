@@ -24,8 +24,9 @@ import {
   openShareIntent,
 } from '../lib/shareSummary'
 import type { AttendanceRecord, Soldier } from '../types/database'
+import { AdminStandbyPanel } from './AdminStandbyPanel'
 
-type AdminTab = 'summary' | 'soldiers'
+type AdminTab = 'summary' | 'soldiers' | 'standby'
 
 export function AdminGate({ children }: { children: ReactNode }) {
   const [authed, setAuthed] = useState(isAdminSession)
@@ -179,28 +180,39 @@ export function AdminDashboard() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col px-3 py-2">
-      <div className="mb-2 grid shrink-0 grid-cols-2 gap-1 rounded-xl bg-white p-1 ring-1 ring-slate-100">
+      <div className="mb-2 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-white p-1 ring-1 ring-slate-100">
         <button
           type="button"
           onClick={() => setTab('summary')}
-          className={`rounded-lg py-2 text-[11px] font-extrabold ${
+          className={`rounded-lg py-2 text-[10px] font-extrabold leading-tight ${
             tab === 'summary' ? 'bg-[#2563eb] text-white' : 'text-slate-500'
           }`}
         >
-          סיכום ומשמרות
+          סיכום
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('standby')}
+          className={`rounded-lg py-2 text-[10px] font-extrabold leading-tight ${
+            tab === 'standby' ? 'bg-[#2563eb] text-white' : 'text-slate-500'
+          }`}
+        >
+          ניהול מטבים
         </button>
         <button
           type="button"
           onClick={() => setTab('soldiers')}
-          className={`rounded-lg py-2 text-[11px] font-extrabold ${
+          className={`rounded-lg py-2 text-[10px] font-extrabold leading-tight ${
             tab === 'soldiers' ? 'bg-[#2563eb] text-white' : 'text-slate-500'
           }`}
         >
-          ניהול חיילים
+          חיילים
         </button>
       </div>
 
-      {tab === 'summary' ? (
+      {tab === 'standby' ? (
+        <AdminStandbyPanel dutyStart={dutyStart} dutyEnd={dutyEnd} />
+      ) : tab === 'summary' ? (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
           <section className="shrink-0 rounded-2xl bg-[#2563eb] p-3 text-white shadow-md">
             <div className="flex items-center gap-2">
