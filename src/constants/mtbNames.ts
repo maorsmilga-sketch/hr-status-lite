@@ -35,7 +35,6 @@ export const MTB_PRESET_NAMES: string[] = [
   'חן מושקט',
   'ניר ויינר',
   'חיים קריספין',
-  'עידו בורנשטין',
 ]
 
 export const MTB_OTHER_VALUE = '__other__'
