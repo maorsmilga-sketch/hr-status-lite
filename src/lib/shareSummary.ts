@@ -1,7 +1,6 @@
 import { formatDisplayDate } from './dates'
 import type { AttendanceRecord, Soldier } from '../types/database'
 
-const DEFAULT_SHARE_PHONE = import.meta.env.VITE_SHARE_PHONE ?? ''
 const FALLBACK_APP_URL = 'https://hr-status-lite.vercel.app'
 
 export function getPublicAppUrl(): string {
@@ -124,35 +123,26 @@ export function buildAttendanceReminderText(
 }
 
 export function openGroupShareIntent(text: string): void {
-  const encoded = encodeURIComponent(text)
-  const groupChooser = `https://wa.me/?text=${encoded}`
-
-  if (navigator.share) {
-    void navigator.share({ text }).catch(() => {
-      window.location.href = groupChooser
-    })
-    return
-  }
-  window.location.href = groupChooser
+  void openTextShare(text)
 }
 
-export function openShareIntent(text: string, phone?: string): void {
-  const encoded = encodeURIComponent(text)
-  const targetPhone = (phone ?? DEFAULT_SHARE_PHONE).replace(/\D/g, '')
-
-  if (navigator.share) {
-    void navigator.share({ text }).catch(() => {
-      fallbackShare(encoded, targetPhone)
-    })
-    return
-  }
-  fallbackShare(encoded, targetPhone)
+/** Opens the OS share sheet (WhatsApp, Mail, Messages, …). Does not force a phone number. */
+export function openShareIntent(text: string): void {
+  void openTextShare(text)
 }
 
-function fallbackShare(encodedText: string, digits: string) {
-  if (digits) {
-    window.location.href = `https://wa.me/${digits}?text=${encodedText}`
-  } else {
-    window.location.href = `sms:?body=${encodedText}`
+async function openTextShare(text: string): Promise<void> {
+  const encoded = encodeURIComponent(text)
+  const genericChooser = `https://wa.me/?text=${encoded}`
+
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ text })
+      return
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+    }
   }
+
+  window.location.href = genericChooser
 }

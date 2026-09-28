@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
 import { SOLDIER_ROLES, roleLabel, type SoldierRoleId } from '../constants/roles'
@@ -13,7 +13,6 @@ import {
   insertSoldier,
   updateAdminPassword,
   updateDutyRange,
-  updateSharePhone,
   updateSoldier,
   verifyAdminPassword,
 } from '../lib/db'
@@ -93,11 +92,8 @@ export function AdminDashboard() {
   const [dutyStart, setDutyStart] = useState('2026-09-17')
   const [dutyEnd, setDutyEnd] = useState('2026-12-15')
   const [dutyMsg, setDutyMsg] = useState<string | null>(null)
-  const [sharePhone, setSharePhone] = useState('')
-  const [phoneMsg, setPhoneMsg] = useState<string | null>(null)
   const [filterId, setFilterId] = useState('')
   const [summaryStatusFilter, setSummaryStatusFilter] = useState<AdminSummaryStatusFilter>('all')
-  const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -111,7 +107,6 @@ export function AdminDashboard() {
       setRecords(dayRecords)
       setDutyStart(settings.dutyStart)
       setDutyEnd(settings.dutyEnd)
-      setSharePhone(settings.sharePhone)
     } catch {
       /* keep */
     }
@@ -151,14 +146,6 @@ export function AdminDashboard() {
     } catch (err) {
       setDutyMsg(err instanceof Error ? err.message : 'שגיאה')
     }
-  }
-
-  function queueSharePhone(value: string) {
-    setSharePhone(value)
-    if (phoneTimer.current) clearTimeout(phoneTimer.current)
-    phoneTimer.current = setTimeout(() => {
-      void updateSharePhone(value).then(() => setPhoneMsg('נשמר'))
-    }, 500)
   }
 
   async function saveEdit(id: string, name = editName, role = editRole) {
@@ -270,7 +257,6 @@ export function AdminDashboard() {
                   onClick={() =>
                     openShareIntent(
                       buildAdminSummaryShareText(viewDate, soldiers, records, summaryStatusFilter),
-                      sharePhone,
                     )
                   }
                   className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#2563eb]"
@@ -296,7 +282,8 @@ export function AdminDashboard() {
               ))}
             </div>
             <p className="mt-1.5 text-[10px] text-white/80">
-              מוצגים {summarySoldiers.length} מתוך {soldiers.length}
+              מוצגים {summarySoldiers.length} מתוך {soldiers.length}. שיתוף פותח את תפריט השיתוף של הטלפון (וואטסאפ,
+              הודעות וכו&apos;).
             </p>
           </section>
 
@@ -455,16 +442,7 @@ export function AdminDashboard() {
           </section>
 
           <section className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-[10px] font-bold text-slate-500">טלפון לשיתוף</p>
-                <input
-                  value={sharePhone}
-                  onChange={(e) => queueSharePhone(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-1 py-1 text-[11px]"
-                />
-                {phoneMsg && <p className="text-[10px] text-emerald-600">{phoneMsg}</p>}
-              </div>
+            <div>
               <form
                 onSubmit={async (e) => {
                   e.preventDefault()
