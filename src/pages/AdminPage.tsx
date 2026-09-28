@@ -18,11 +18,20 @@ import {
   verifyAdminPassword,
 } from '../lib/db'
 import {
+  buildAdminSummaryShareText,
   buildAttendanceReminderText,
-  buildDaySummaryText,
+  type AdminSummaryStatusFilter,
+  soldierMatchesSummaryFilter,
   openGroupShareIntent,
   openShareIntent,
 } from '../lib/shareSummary'
+
+const SUMMARY_STATUS_FILTERS: { id: AdminSummaryStatusFilter; label: string }[] = [
+  { id: 'all', label: 'הכל' },
+  { id: 'unreported', label: 'לא דווח' },
+  { id: 'בית', label: 'בית' },
+  { id: 'בבסיס', label: 'בבסיס' },
+]
 import type { AttendanceRecord, Soldier } from '../types/database'
 import { AdminStandbyPanel } from './AdminStandbyPanel'
 
@@ -87,6 +96,7 @@ export function AdminDashboard() {
   const [sharePhone, setSharePhone] = useState('')
   const [phoneMsg, setPhoneMsg] = useState<string | null>(null)
   const [filterId, setFilterId] = useState('')
+  const [summaryStatusFilter, setSummaryStatusFilter] = useState<AdminSummaryStatusFilter>('all')
   const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
@@ -177,6 +187,9 @@ export function AdminDashboard() {
   const recordBySoldier = new Map(records.map((r) => [r.soldier_id, r]))
   const reported = records.length
   const visibleSoldiers = filterId ? soldiers.filter((s) => s.id === filterId) : soldiers
+  const summarySoldiers = soldiers.filter((s) =>
+    soldierMatchesSummaryFilter(s.id, records, summaryStatusFilter),
+  )
 
   return (
     <main className="flex min-h-0 flex-1 flex-col px-3 py-2">
@@ -254,13 +267,37 @@ export function AdminDashboard() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => openShareIntent(buildDaySummaryText(viewDate, soldiers, records), sharePhone)}
+                  onClick={() =>
+                    openShareIntent(
+                      buildAdminSummaryShareText(viewDate, soldiers, records, summaryStatusFilter),
+                      sharePhone,
+                    )
+                  }
                   className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#2563eb]"
                 >
                   שיתוף סיכום
                 </button>
               </div>
             </div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {SUMMARY_STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setSummaryStatusFilter(f.id)}
+                  className={`rounded-lg px-2.5 py-1 text-[10px] font-extrabold ${
+                    summaryStatusFilter === f.id
+                      ? 'bg-white text-[#2563eb]'
+                      : 'bg-white/15 text-white ring-1 ring-white/30'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] text-white/80">
+              מוצגים {summarySoldiers.length} מתוך {soldiers.length}
+            </p>
           </section>
 
           <section className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
@@ -294,24 +331,28 @@ export function AdminDashboard() {
             {loading ? (
               <p className="py-6 text-center text-xs text-slate-400">טוען…</p>
             ) : (
-              soldiers.map((s) => {
-                const rec = recordBySoldier.get(s.id)
-                return (
-                  <div key={s.id} className="flex items-center justify-between gap-2 border-b border-slate-50 py-1.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-bold text-slate-800">{s.name}</p>
-                      <p className="text-[10px] text-slate-400">{roleLabel(s.role)}</p>
+              summarySoldiers.length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-400">אין התאמות לסינון</p>
+              ) : (
+                summarySoldiers.map((s) => {
+                  const rec = recordBySoldier.get(s.id)
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-2 border-b border-slate-50 py-1.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-slate-800">{s.name}</p>
+                        <p className="text-[10px] text-slate-400">{roleLabel(s.role)}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          rec ? statusBadgeClass(rec.status) : 'bg-slate-100 text-slate-400'
+                        }`}
+                      >
+                        {rec ? rec.status : 'לא דווח'}
+                      </span>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        rec ? statusBadgeClass(rec.status) : 'bg-slate-100 text-slate-400'
-                      }`}
-                    >
-                      {rec ? rec.status : 'לא דווח'}
-                    </span>
-                  </div>
-                )
-              })
+                  )
+                })
+              )
             )}
           </section>
         </div>
