@@ -13,15 +13,44 @@ export function getPublicAppUrl(): string {
   return FALLBACK_APP_URL
 }
 
+export type AdminSummaryStatusFilter = 'all' | 'unreported' | 'בית' | 'בבסיס'
+
+function recordBySoldier(records: AttendanceRecord[]) {
+  return new Map(records.map((r) => [r.soldier_id, r]))
+}
+
+export function soldierMatchesSummaryFilter(
+  soldierId: string,
+  records: AttendanceRecord[],
+  filter: AdminSummaryStatusFilter,
+): boolean {
+  if (filter === 'all') return true
+  const rec = recordBySoldier(records).get(soldierId)
+  if (filter === 'unreported') return !rec
+  return rec?.status === filter
+}
+
 export function buildDaySummaryText(
   dateIso: string,
   soldiers: Soldier[],
   records: AttendanceRecord[],
+  filter: AdminSummaryStatusFilter = 'all',
 ): string {
-  const bySoldier = new Map(records.map((r) => [r.soldier_id, r]))
+  const bySoldier = recordBySoldier(records)
+  const filtered = soldiers.filter((s) => soldierMatchesSummaryFilter(s.id, records, filter))
   const lines: string[] = [`סיכום נוכחות — ${formatDisplayDate(dateIso)}`, '']
 
-  for (const s of soldiers) {
+  if (filter === 'unreported') {
+    for (const s of filtered) {
+      lines.push(s.name)
+    }
+    if (filtered.length === 0) {
+      lines.push('כולם דיווחו')
+    }
+    return lines.join('\n')
+  }
+
+  for (const s of filtered) {
     const rec = bySoldier.get(s.id)
     if (!rec) continue
     const extra = rec.notes ? ` (${rec.notes})` : ''
@@ -29,10 +58,45 @@ export function buildDaySummaryText(
   }
 
   if (lines.length === 2) {
-    lines.push('אין דיווחים ליום זה')
+    lines.push(filter === 'all' ? 'אין דיווחים ליום זה' : 'אין התאמות לסינון')
   }
 
   return lines.join('\n')
+}
+
+export function buildUnreportedSummaryShareText(
+  dateIso: string,
+  soldiers: Soldier[],
+  records: AttendanceRecord[],
+  appUrl: string = getPublicAppUrl(),
+): string {
+  const missing = soldiers.filter((s) => soldierMatchesSummaryFilter(s.id, records, 'unreported'))
+  const lines: string[] = [
+    `תזכורת — ${formatDisplayDate(dateIso)}`,
+    '',
+    'שעדיין לא עדכתם נוכחות. נא להיכנס ולעדכן.',
+    appUrl,
+    '',
+  ]
+  if (missing.length > 0) {
+    lines.push('חסרים דיווח:')
+    missing.forEach((s) => lines.push(`• ${s.name}`))
+  } else {
+    lines.push('כולם דיווחו 🙏')
+  }
+  return lines.join('\n')
+}
+
+export function buildAdminSummaryShareText(
+  dateIso: string,
+  soldiers: Soldier[],
+  records: AttendanceRecord[],
+  filter: AdminSummaryStatusFilter,
+): string {
+  if (filter === 'unreported') {
+    return buildUnreportedSummaryShareText(dateIso, soldiers, records)
+  }
+  return buildDaySummaryText(dateIso, soldiers, records, filter)
 }
 
 export function buildAttendanceReminderText(
