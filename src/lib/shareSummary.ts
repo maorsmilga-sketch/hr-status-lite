@@ -52,13 +52,22 @@ export function buildDaySummaryText(
 
   for (const s of filtered) {
     const rec = bySoldier.get(s.id)
+    if (filter === 'all') {
+      if (!rec) {
+        lines.push(`${s.name}: לא דווח`)
+        continue
+      }
+      const extra = rec.notes ? ` (${rec.notes})` : ''
+      lines.push(`${s.name}: ${rec.status}${extra}`)
+      continue
+    }
     if (!rec) continue
     const extra = rec.notes ? ` (${rec.notes})` : ''
     lines.push(`${s.name}: ${rec.status}${extra}`)
   }
 
   if (lines.length === 2) {
-    lines.push(filter === 'all' ? 'אין דיווחים ליום זה' : 'אין התאמות לסינון')
+    lines.push(filter === 'all' ? 'אין חיילים ברשימה' : 'אין התאמות לסינון')
   }
 
   return lines.join('\n')
