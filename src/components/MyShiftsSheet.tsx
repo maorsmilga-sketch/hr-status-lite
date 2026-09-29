@@ -26,13 +26,13 @@ function dutyRange(soldier: Soldier | null, dutyStart: string, dutyEnd: string):
 export function MyShiftsSheet({ open, soldier, onClose }: MyShiftsSheetProps) {
   const [loading, setLoading] = useState(false)
   const [assigned, setAssigned] = useState<AssignedDay[]>([])
-  const [totalDays, setTotalDays] = useState(0)
+  const [dutyBounds, setDutyBounds] = useState<{ start: string; end: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open || !soldier) {
       setAssigned([])
-      setTotalDays(0)
+      setDutyBounds(null)
       setError(null)
       return
     }
@@ -46,7 +46,7 @@ export function MyShiftsSheet({ open, soldier, onClose }: MyShiftsSheetProps) {
         if (cancelled) return null
         const { start, end } = dutyRange(soldier, settings.dutyStart, settings.dutyEnd)
         const allDates = eachDayInRange(start, end)
-        return fetchShiftsInRange(start, end).then((map) => ({ map, allDates }))
+        return fetchShiftsInRange(start, end).then((map) => ({ map, allDates, start, end }))
       })
       .then((result) => {
         if (cancelled || !result) return
@@ -57,7 +57,7 @@ export function MyShiftsSheet({ open, soldier, onClose }: MyShiftsSheetProps) {
           }))
           .filter((day) => day.slots.length > 0)
         setAssigned(days)
-        setTotalDays(result.allDates.length)
+        setDutyBounds({ start: result.start, end: result.end })
       })
       .catch(() => {
         if (!cancelled) setError('טעינת המשמרות נכשלה')
@@ -73,8 +73,25 @@ export function MyShiftsSheet({ open, soldier, onClose }: MyShiftsSheetProps) {
 
   const today = todayISO()
   const upcoming = useMemo(() => assigned.filter((day) => day.date >= today), [assigned, today])
-  const percent = totalDays > 0 ? Math.round((assigned.length / totalDays) * 100) : 0
-  const percentOk = percent >= 50
+
+  const { shiftDaysThroughToday, elapsedDutyDays, percent, percentOk } = useMemo(() => {
+    if (!dutyBounds) {
+      return { shiftDaysThroughToday: 0, elapsedDutyDays: 0, percent: 0, percentOk: true }
+    }
+    const { start, end } = dutyBounds
+    const elapsedEnd = today <= end ? today : end
+    const elapsedDutyDays =
+      elapsedEnd >= start ? eachDayInRange(start, elapsedEnd).length : 0
+    const shiftDaysThroughToday = assigned.filter((day) => day.date <= today).length
+    const percent =
+      elapsedDutyDays > 0 ? Math.round((shiftDaysThroughToday / elapsedDutyDays) * 100) : 0
+    return {
+      shiftDaysThroughToday,
+      elapsedDutyDays,
+      percent,
+      percentOk: percent >= 50,
+    }
+  }, [assigned, dutyBounds, today])
 
   if (!open) return null
 
@@ -110,7 +127,7 @@ export function MyShiftsSheet({ open, soldier, onClose }: MyShiftsSheetProps) {
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[12px] font-bold text-slate-500">
-                    {assigned.length} מתוך {totalDays} ימי תעסוקה
+                    {shiftDaysThroughToday} מתוך {elapsedDutyDays} ימי תעסוקה (עד היום)
                   </p>
                   <p
                     className={`text-2xl font-extrabold tabular-nums ${
