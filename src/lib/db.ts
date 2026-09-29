@@ -202,6 +202,19 @@ export async function fetchAttendanceForDate(recordDate: string): Promise<Attend
   return snap.docs.map((d) => mapAttendance(d.id, d.data()))
 }
 
+export async function fetchAttendanceForSoldierInRange(
+  soldierId: string,
+  startIso: string,
+  endIso: string,
+): Promise<AttendanceRecord[]> {
+  if (!soldierId || !startIso || !endIso || endIso < startIso) return []
+  const q = query(collection(db, 'attendance_records'), where('soldier_id', '==', soldierId))
+  const snap = await getDocs(q)
+  return snap.docs
+    .map((d) => mapAttendance(d.id, d.data()))
+    .filter((rec) => rec.record_date >= startIso && rec.record_date <= endIso)
+}
+
 export async function getAppSettings(): Promise<AppSettings> {
   const ref = SETTINGS_REF()
   const snap = await getDoc(ref)

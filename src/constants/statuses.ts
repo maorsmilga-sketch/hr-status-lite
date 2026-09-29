@@ -21,6 +21,18 @@ export const STATUSES = [
 
 export type StatusLabel = (typeof STATUSES)[number]['label']
 
+/** Attendance statuses that count as on-duty days in the update-tab share / summary percent. */
+export const ON_DUTY_ATTENDANCE_STATUSES = new Set<string>([
+  'בבסיס',
+  'באימון',
+  'משמרת במלכ"א',
+  'אימון',
+])
+
+export function countsAsOnDutyAttendanceStatus(status: string): boolean {
+  return ON_DUTY_ATTENDANCE_STATUSES.has(status.trim())
+}
+
 const LEGACY_BADGES: Record<string, string> = {
   'משמרת במלכ"א': 'bg-violet-100 text-violet-800',
   'בבית בשמ"פ': 'bg-sky-100 text-sky-800',
