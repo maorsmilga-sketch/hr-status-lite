@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { fetchAttendanceForSoldierInRange } from '../lib/db'
-import { formatDisplayDate } from '../lib/dates'
+import { fetchAttendanceForSoldierInRange, fetchShiftsInRange } from '../lib/db'
+import { addDays, formatDisplayDate, todayISO } from '../lib/dates'
 import {
   computeReportingFifty,
+  projectWithShifts,
+  type ShiftProjection,
   REPORTING_PERIOD_DEFAULT_START,
   reportingPeriodFor,
   type ReportingFiftyResult,
@@ -15,7 +17,11 @@ type ReportingFiftyModalProps = {
   onClose: () => void
 }
 
-type CheckResult = ReportingFiftyResult & { start: string; end: string }
+type CheckResult = ReportingFiftyResult & {
+  start: string
+  end: string
+  projection: ShiftProjection | null
+}
 
 export function ReportingFiftyModal({ open, soldier, onClose }: ReportingFiftyModalProps) {
   const [arrival, setArrival] = useState('')
@@ -54,7 +60,18 @@ export function ReportingFiftyModal({ open, soldier, onClose }: ReportingFiftyMo
     setError(null)
     try {
       const records = await fetchAttendanceForSoldierInRange(soldier.id, arrival, end)
-      setResult({ ...computeReportingFifty(records, arrival, start, end), start, end })
+      const base = computeReportingFifty(records, arrival, start, end)
+      let projection: ShiftProjection | null = null
+      if (!base.reached) {
+        try {
+          const today = todayISO()
+          const shifts = await fetchShiftsInRange(addDays(today, 1), end)
+          projection = projectWithShifts(records, shifts, soldier.name, base, arrival, start, end, today)
+        } catch {
+          projection = null
+        }
+      }
+      setResult({ ...base, start, end, projection })
     } catch {
       setError('הבדיקה נכשלה. נסו שוב.')
     } finally {
@@ -144,6 +161,14 @@ export function ReportingFiftyModal({ open, soldier, onClose }: ReportingFiftyMo
                     ? 'הגעת ל-50% מהתקופה'
                     : `נשארו עוד ${result.neededForFifty} ימים בבסיס כדי להגיע ל-50%`}
                 </p>
+                {!result.reached && result.projection && (
+                  <p className="mt-2 border-t border-slate-200 pt-2 text-[13px] font-bold text-slate-600">
+                    {result.projection.missingAfterShifts === 0
+                      ? 'לפי המשמרות שהוזנו באפליקציה, תגיע ליעד של 50% עד סוף התעסוקה.'
+                      : `לפי המשמרות שהוזנו באפליקציה עד סוף התעסוקה, יישארו לך עוד ${result.projection.missingAfterShifts} ימי דיווח/משמרת כדי להגיע ל־50%.`
+                    }
+                  </p>
+                )}
               </div>
             )}
           </div>
