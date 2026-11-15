@@ -20,7 +20,9 @@ import {
   visibleWindowDays,
   weekdayShort,
 } from '../lib/dates'
+import { downloadAttendanceXlsx } from '../lib/attendanceExport'
 import {
+  fetchAttendanceForSoldier,
   fetchShiftsForDates,
   fetchSoldiers,
   getAppSettings,
@@ -43,6 +45,7 @@ export function ShiftsPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [picking, setPicking] = useState<{ id: ShiftRoleId; label: string } | null>(null)
   const [myShiftsOpen, setMyShiftsOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const touchX = useRef<number | null>(null)
 
   const dates = useMemo(
@@ -98,6 +101,25 @@ export function ShiftsPage() {
 
   function move(delta: number) {
     setViewStart((start) => moveWindow(start, delta, dutyStart, dutyEnd))
+  }
+
+  async function exportReports() {
+    if (!storedSoldier) return
+    setExporting(true)
+    setMessage(null)
+    try {
+      const records = await fetchAttendanceForSoldier(storedSoldier.id)
+      if (records.length === 0) {
+        setMessage(`אין דיווחים שמורים עבור ${storedSoldier.name}`)
+        return
+      }
+      await downloadAttendanceXlsx(storedSoldier.name, records)
+      setMessage('הקובץ הורד')
+    } catch {
+      setMessage('הייצוא נכשל')
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function assignRole(roleId: ShiftRoleId, value: string) {
@@ -195,13 +217,28 @@ export function ShiftsPage() {
             )
           })}
         </div>
-        <button
-          type="button"
-          onClick={() => setMyShiftsOpen(true)}
-          className="mt-2 w-full rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-extrabold text-[#2563eb]"
-        >
-          {storedSoldier ? `המשמרות של ${storedSoldier.name}` : 'המשמרות שלי'}
-        </button>
+        <div className="mt-2 flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => setMyShiftsOpen(true)}
+            className="min-w-0 flex-1 truncate rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-extrabold text-[#2563eb]"
+          >
+            {storedSoldier ? `המשמרות של ${storedSoldier.name}` : 'המשמרות שלי'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportReports()}
+            disabled={!storedSoldier || exporting}
+            className="min-w-0 flex-1 rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-extrabold text-[#2563eb] disabled:bg-slate-50 disabled:text-slate-300"
+          >
+            {exporting ? 'מייצא…' : 'ייצוא דיווחים לאקסל'}
+          </button>
+        </div>
+        {!storedSoldier && (
+          <p className="mt-1 text-center text-[10px] text-slate-400">
+            לייצוא דיווחים יש לבחור קודם שם חייל בטאב ״עדכון״
+          </p>
+        )}
       </section>
 
       {loading ? (
@@ -319,4 +356,4 @@ function GlassShiftCard({
       </div>
     </section>
   )
-}
+          }
