@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PasswordModal } from '../components/PasswordModal'
 import { ShiftPeriodIcon } from '../components/DayShiftPreview'
 import { MyShiftsSheet } from '../components/MyShiftsSheet'
+import { ReportingFiftyModal } from '../components/ReportingFiftyModal'
 import { ShiftPickerSheet } from '../components/ShiftPickerSheet'
 import {
   emptyAssignments,
@@ -45,6 +46,7 @@ export function ShiftsPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [picking, setPicking] = useState<{ id: ShiftRoleId; label: string } | null>(null)
   const [myShiftsOpen, setMyShiftsOpen] = useState(false)
+  const [fiftyOpen, setFiftyOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const touchX = useRef<number | null>(null)
 
@@ -139,7 +141,7 @@ export function ShiftsPage() {
     touchX.current = e.changedTouches[0]?.clientX ?? null
   }
   function onTouchEnd(e: React.TouchEvent) {
-    if (picking || myShiftsOpen || touchX.current == null) return
+    if (picking || myShiftsOpen || fiftyOpen || touchX.current == null) return
     const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX.current
     touchX.current = null
     if (Math.abs(dx) < 70) return
@@ -234,9 +236,19 @@ export function ShiftsPage() {
             {exporting ? 'מייצא…' : 'ייצוא דיווחים לאקסל'}
           </button>
         </div>
+        <div className="mt-1.5 flex">
+          <button
+            type="button"
+            onClick={() => setFiftyOpen(true)}
+            disabled={!storedSoldier}
+            className="min-w-0 flex-1 rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-extrabold text-[#2563eb] disabled:bg-slate-50 disabled:text-slate-300"
+          >
+            בדיקת 50%
+          </button>
+        </div>
         {!storedSoldier && (
           <p className="mt-1 text-center text-[10px] text-slate-400">
-            לייצוא דיווחים יש לבחור קודם שם חייל בטאב ״עדכון״
+            לייצוא דיווחים ובדיקת 50% יש לבחור קודם שם חייל בטאב ״עדכון״
           </p>
         )}
       </section>
@@ -275,6 +287,12 @@ export function ShiftsPage() {
         open={myShiftsOpen}
         soldier={storedSoldier}
         onClose={() => setMyShiftsOpen(false)}
+      />
+
+      <ReportingFiftyModal
+        open={fiftyOpen}
+        soldier={storedSoldier}
+        onClose={() => setFiftyOpen(false)}
       />
 
       <ShiftPickerSheet
