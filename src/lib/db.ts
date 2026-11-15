@@ -215,6 +215,15 @@ export async function fetchAttendanceForSoldierInRange(
     .filter((rec) => rec.record_date >= startIso && rec.record_date <= endIso)
 }
 
+export async function fetchAttendanceForSoldier(soldierId: string): Promise<AttendanceRecord[]> {
+  if (!soldierId) return []
+  const q = query(collection(db, 'attendance_records'), where('soldier_id', '==', soldierId))
+  const snap = await getDocs(q)
+  return snap.docs
+    .map((d) => mapAttendance(d.id, d.data()))
+    .sort((a, b) => a.record_date.localeCompare(b.record_date))
+}
+
 export async function getAppSettings(): Promise<AppSettings> {
   const ref = SETTINGS_REF()
   const snap = await getDoc(ref)
