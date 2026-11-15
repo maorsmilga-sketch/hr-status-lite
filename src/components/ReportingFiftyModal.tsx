@@ -3,6 +3,7 @@ import { fetchAttendanceForSoldierInRange } from '../lib/db'
 import { formatDisplayDate } from '../lib/dates'
 import {
   computeReportingFifty,
+  REPORTING_PERIOD_DEFAULT_START,
   reportingPeriodFor,
   type ReportingFiftyResult,
 } from '../lib/reportingFifty'
@@ -18,18 +19,23 @@ type CheckResult = ReportingFiftyResult & { start: string; end: string }
 
 export function ReportingFiftyModal({ open, soldier, onClose }: ReportingFiftyModalProps) {
   const [arrival, setArrival] = useState('')
+  // arrival stays ISO (yyyy-mm-dd) for the calculation; display is Israeli DD/MM/YYYY.
+  const arrivalDisplay = arrival ? arrival.split('-').reverse().join('/') : ''
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<CheckResult | null>(null)
 
   useEffect(() => {
     if (open) {
-      setArrival('')
+      // Auto-fill the arrival date: the soldier's operational-duty start, else the default.
+      // Stays editable - the soldier can change it before checking.
+      setArrival(soldier?.operational_duty_start || REPORTING_PERIOD_DEFAULT_START)
       setError(null)
       setResult(null)
       setChecking(false)
     }
-  }, [open])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, soldier?.id, soldier?.operational_duty_start])
 
   if (!open) return null
 
@@ -76,17 +82,30 @@ export function ReportingFiftyModal({ open, soldier, onClose }: ReportingFiftyMo
           <div className="mt-5 space-y-4">
             <label className="block">
               <span className="text-sm font-semibold text-slate-700">תאריך התייצבות</span>
-              <input
-                type="date"
-                autoFocus
-                value={arrival}
-                onChange={(e) => {
-                  setArrival(e.target.value)
-                  setResult(null)
-                  setError(null)
-                }}
-                className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-[#c9a44a]/40"
-              />
+              {/* Native picker underneath (keeps the device's calendar UI), but the
+                  displayed value is always Israeli DD/MM/YYYY, on every device. */}
+              <div className="relative mt-1.5">
+                <div
+                  aria-hidden
+                  dir="ltr"
+                  className={`w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-left text-base ${
+                    arrival ? 'text-slate-900' : 'text-slate-400'
+                  }`}
+                >
+                  {arrivalDisplay || 'DD/MM/YYYY'}
+                </div>
+                <input
+                  type="date"
+                  aria-label="תאריך התייצבות"
+                  value={arrival}
+                  onChange={(e) => {
+                    setArrival(e.target.value)
+                    setResult(null)
+                    setError(null)
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </div>
             </label>
             <button
               type="button"
