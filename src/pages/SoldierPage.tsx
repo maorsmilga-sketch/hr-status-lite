@@ -5,7 +5,7 @@ import { OperationalDutyModal } from '../components/OperationalDutyModal'
 import { SoldierSearchSelect } from '../components/SoldierSearchSelect'
 import { emptyAssignments, type ShiftAssignments } from '../constants/shifts'
 import { STATUSES } from '../constants/statuses'
-import { clampToMaxUpdateDate, eachDayInRange, maxUpdateDateISO, todayISO } from '../lib/dates'
+import { eachDayInRange, todayISO } from '../lib/dates'
 import {
   fetchAttendanceRecord,
   fetchShiftsForDates,
@@ -63,7 +63,6 @@ export function SoldierPage() {
     () => soldiers.find((s) => s.id === selectedId),
     [soldiers, selectedId],
   )
-  const maxDate = maxUpdateDateISO()
 
   const loadSoldiers = useCallback(async () => {
     setLoadingSoldiers(true)
@@ -137,11 +136,6 @@ export function SoldierPage() {
       setMessage({ type: 'err', text: 'טווח תאריכים לא תקין' })
       return
     }
-    if (dates.some((date) => date > maxDate)) {
-      setMessage({ type: 'err', text: 'ניתן לעדכן עד 4 ימים קדימה מהיום' })
-      return
-    }
-
     setSubmitting(true)
     setMessage(null)
     try {
@@ -172,7 +166,7 @@ export function SoldierPage() {
   }, [rangeStart, rangeEnd])
 
   function applyDate(value: string, setter: (next: string) => void) {
-    setter(clampToMaxUpdateDate(value, todayISO()))
+    setter(value)
   }
 
   return (
@@ -216,7 +210,6 @@ export function SoldierPage() {
             <span className="text-[10px] font-semibold text-slate-400">תאריך</span>
             <input
               type="date"
-              max={maxDate}
               value={showRange ? rangeStart : singleDate}
               onChange={(e) => {
                 if (showRange) applyDate(e.target.value, setRangeStart)
@@ -230,7 +223,6 @@ export function SoldierPage() {
               <span className="text-[10px] font-semibold text-slate-400">עד</span>
               <input
                 type="date"
-                max={maxDate}
                 value={rangeEnd}
                 onChange={(e) => applyDate(e.target.value, setRangeEnd)}
                 className="mt-0.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-sm"
@@ -242,16 +234,12 @@ export function SoldierPage() {
           <button
             type="button"
             onClick={() => {
-              setSingleDate((d) => clampToMaxUpdateDate(d))
-              setRangeStart((d) => clampToMaxUpdateDate(d))
-              setRangeEnd((d) => clampToMaxUpdateDate(d))
               setShowRange((v) => !v)
             }}
             className="text-[11px] font-bold text-[#2563eb]"
           >
             {showRange ? 'חזרה ליום בודד' : 'עדכון טווח ימים'}
           </button>
-          <p className="text-[10px] text-slate-400">עד 4 ימים קדימה</p>
         </div>
 
         <p className="mt-2 mb-1 text-[11px] font-extrabold text-slate-800 sm:text-xs">סטטוס</p>
